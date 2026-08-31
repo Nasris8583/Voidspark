@@ -1,0 +1,14 @@
+Add the following settings into world server
+# TrinityCore 12.0.7/playerbot-v2 compatibility defaults.
+WhoList.Update.Interval = 5
+StartDeathKnightPlayerMoney = 2000
+StartDemonHunterPlayerMoney = 0
+StartEvokerPlayerMoney = 0
+StartAlliedRacePlayerMoney = 10000
+Pathfinding.PreferRoads = 0
+Pathfinding.SlopeCoefficient = 1.0
+RoadGraph.Enable = 0
+RoadGraph.MinDistance = 150.0
+RoadGraph.MaxDetourRatio = 1.6
+RoadGraph.MaxEntryDistance = 120.0
+RoadGraph.NodeMergeEpsilon = 3.0
