@@ -21,7 +21,7 @@ jobs:
       - name: Verify distribution checksum
         shell: pwsh
         run: |
-          $expected = '709747A1AFCD395B40934C78857F6DAAF279980108E045F16C0747BD31EEF953'
+          $expected = '9A4CCB78004AC6FD29C18EDD87F7B3881F79D33ECF165961E34D49B968718DFA'
           $actual = (Get-FileHash dist/TrinityCore-12.0.7-PlayerbotV2-EasyPack.zip -Algorithm SHA256).Hash
           if ($actual -ne $expected) { throw "Checksum mismatch: $actual" }
       - name: Check required project files
@@ -32,5 +32,9 @@ jobs:
             'config/playerbot.conf',
             'patches/trinitycore-playerbot-v2-12.0.7.patch',
             'sql/playerbot_v2/0001_init.sql',
-            'sql/playerbot_v2/0016_handcrafted_road.sql'
+            'sql/playerbot_v2/0016_handcrafted_road.sql',
+            'sql/playerbot_v2/0017_lore_knowledge.sql',
+            'patches/lore-source/BotChatReactor.cpp',
+            'patches/lore-source/LoreKnowledge.cpp',
+            'patches/lore-source/LoreKnowledge.h'
           ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing $_" } }

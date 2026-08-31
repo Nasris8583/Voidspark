@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 - 2026-08-31
+
+- Added a database-backed World of Warcraft lore knowledge system with 42 curated topics.
+- Added lore question detection in local, party, guild, and whisper chat.
+- Added ten-minute per-player topic memory for conversational follow-ups such as `tell me more`.
+- Added faction-aware answer variants and safe fallback suggestions for unknown questions.
+- Preserved bot-message suppression and local cooldowns to prevent chat loops and spam.
+- Added migration `0017_lore_knowledge.sql` and updated the Windows Easy Pack.
+
 ## 0.1.0 - 2026-08-31
 
 - Added the TrinityCore 12.0.7 Playerbot V2 compatibility patch.

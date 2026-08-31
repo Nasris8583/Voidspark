@@ -14,7 +14,7 @@ Download [`TrinityCore-12.0.7-PlayerbotV2-EasyPack.zip`](dist/TrinityCore-12.0.7
 SHA-256:
 
 ```text
-709747A1AFCD395B40934C78857F6DAAF279980108E045F16C0747BD31EEF953
+9A4CCB78004AC6FD29C18EDD87F7B3881F79D33ECF165961E34D49B968718DFA
 ```
 
 ## Features
@@ -22,6 +22,7 @@ SHA-256:
 - Headless bot login and logout integrated with TrinityCore 12.0.7.
 - Gradual population management with a tested 40-bot default.
 - Player-facing `/say`, `/yell`, party, guild, whisper, and emote reactions.
+- Database-backed WoW lore answers across local, party, guild, and whisper chat, with short conversational follow-ups.
 - Player invitations, supported group buffs, guild recruitment, and scheduled guild activity.
 - Automatic, versioned character-database migrations.
 - One-click Windows installer with timestamped backups and restoration tools.
@@ -75,6 +76,16 @@ The fleet fills gradually. Useful diagnostics include:
 .playerbot inspect BOTNAME
 ```
 
+Try the lore system with ordinary questions:
+
+```text
+/say Who is Arthas?
+/say What are the Old Gods?
+/say Tell me about the Titans
+```
+
+You can also whisper a bot for a longer reply, then say `tell me more`, `go on`, or `what happened next`. The bot remembers that player's last lore topic for ten minutes.
+
 ## Repository layout
 
 ```text
@@ -90,6 +101,8 @@ sql/          Versioned bot and navigation migrations
 
 The main adaptation is represented by [`patches/trinitycore-playerbot-v2-12.0.7.patch`](patches/trinitycore-playerbot-v2-12.0.7.patch), followed by [`patches/0002-low-memory-on-demand-terrain.patch`](patches/0002-low-memory-on-demand-terrain.patch). Apply them to the matching Playerbot V2/TrinityCore base and build with Visual Studio 2026, CMake, Ninja, Boost, OpenSSL, and MySQL development libraries.
 
+The added lore implementation is also preserved as source snapshots under [`patches/lore-source`](patches/lore-source), together with migration [`0017_lore_knowledge.sql`](sql/playerbot_v2/0017_lore_knowledge.sql).
+
 See the [build report](docs/trinitycore-12.0.7-playerbot-v2-build-report.md) for the tested build and runtime history.
 
 ## Scaling warning
@@ -101,6 +114,7 @@ Testing on a 16 GB host showed that 60–100 active bots exhausted physical and 
 - Not every retail dungeon, raid, battleground, quest, class mechanic, or modern subsystem has bespoke AI.
 - Nearby buffs are primarily group-oriented.
 - Bots do not recursively answer other bot messages, preventing local-channel echo storms.
+- Lore answers are a curated offline knowledge base, not a live AI service. Broad Warcraft topics are covered, but obscure NPCs, newly released material, and ambiguous questions can still receive a topic suggestion instead of a specific answer.
 - Navigation data loads on first use, so the first entry into a map can briefly pause.
 - The packaged executable can display an `unknown/Archived` revision label because the final binary was linked from a relocated checkout; protocol compatibility remains 12.0.7.
 

@@ -10,6 +10,7 @@
 - Runtime memory reduction: eager common-zone and battleground terrain pinning removed.
 - Low-latency configuration profile with bounded workers and a 3 ms bot tick budget.
 - Player-facing social chat reactions, emotes, whispers, grouping, buffs, guilds, and session rhythm.
+- Database-backed WoW lore answers in local, party, guild, and whisper chat, including ten-minute per-player follow-up context.
 
 ## Default resource profile
 
@@ -27,6 +28,7 @@
 - Not every dungeon, raid, battleground, quest, class mechanic, or modern retail system has bespoke bot logic.
 - Nearby buffs are primarily group-oriented; bots do not continuously buff every stranger in crowded cities.
 - Bot speakers are prevented from recursively triggering other bot chat replies. This avoids local-channel echo storms.
+- Lore is a curated 42-topic offline library rather than a generative AI model. It covers major characters, factions, cosmology, races, conflicts, expansions, and current-saga foundations, but cannot guarantee a bespoke answer for every minor NPC or future story update.
 - A first-time map/navmesh load can cause a short pause.
 - The executable's displayed Git revision can show `unknown/Archived` because the final build was produced from a relocated source checkout; protocol and database compatibility are unchanged.
 

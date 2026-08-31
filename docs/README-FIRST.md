@@ -29,6 +29,16 @@ The included profile gradually starts up to 40 bots. This is the tested safe set
 
 Bots respond to appropriate player messages in `/say`, `/yell`, party, guild, and whisper chat. They also react to emotes, accept player invitations, and provide supported group buffs.
 
+Bots can answer a broad offline library of WoW lore questions. For example:
+
+```text
+/say Who is Arthas?
+/say Tell me about the Titans
+/say What is the Worldsoul Saga?
+```
+
+Whispering a bot gives room for a longer response. After an answer, use `tell me more`, `go on`, or `what happened next`; the bot remembers your last topic for ten minutes. The lore library is curated and does not use the internet or an external AI account.
+
 ## Important compatibility limits
 
 - Intended for TrinityCore 12.0.7 / client build 68887.
