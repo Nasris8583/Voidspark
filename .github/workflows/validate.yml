@@ -36,5 +36,6 @@ jobs:
             'sql/playerbot_v2/0017_lore_knowledge.sql',
             'patches/lore-source/BotChatReactor.cpp',
             'patches/lore-source/LoreKnowledge.cpp',
-            'patches/lore-source/LoreKnowledge.h'
+            'patches/lore-source/LoreKnowledge.h',
+            'patches/0003-conversational-wow-lore.patch'
           ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing $_" } }

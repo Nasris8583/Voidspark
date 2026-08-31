@@ -8,6 +8,7 @@
 - Added faction-aware answer variants and safe fallback suggestions for unknown questions.
 - Preserved bot-message suppression and local cooldowns to prevent chat loops and spam.
 - Added migration `0017_lore_knowledge.sql` and updated the Windows Easy Pack.
+- Added apply-ready source patch `0003-conversational-wow-lore.patch` and verified it against source revision `57655680`.
 
 ## 0.1.0 - 2026-08-31
 

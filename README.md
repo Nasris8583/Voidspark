@@ -101,7 +101,14 @@ sql/          Versioned bot and navigation migrations
 
 The main adaptation is represented by [`patches/trinitycore-playerbot-v2-12.0.7.patch`](patches/trinitycore-playerbot-v2-12.0.7.patch), followed by [`patches/0002-low-memory-on-demand-terrain.patch`](patches/0002-low-memory-on-demand-terrain.patch). Apply them to the matching Playerbot V2/TrinityCore base and build with Visual Studio 2026, CMake, Ninja, Boost, OpenSSL, and MySQL development libraries.
 
-The added lore implementation is also preserved as source snapshots under [`patches/lore-source`](patches/lore-source), together with migration [`0017_lore_knowledge.sql`](sql/playerbot_v2/0017_lore_knowledge.sql).
+The conversational lore implementation is available as the apply-ready [`0003-conversational-wow-lore.patch`](patches/0003-conversational-wow-lore.patch). It includes the chat-reactor integration, lore knowledge source, and migration `0017`. Copy the patch into the matching TrinityCore source root, then run:
+
+```text
+git apply --check patches/0003-conversational-wow-lore.patch
+git apply patches/0003-conversational-wow-lore.patch
+```
+
+The individual source snapshots remain under [`patches/lore-source`](patches/lore-source), and the standalone migration is at [`0017_lore_knowledge.sql`](sql/playerbot_v2/0017_lore_knowledge.sql).
 
 See the [build report](docs/trinitycore-12.0.7-playerbot-v2-build-report.md) for the tested build and runtime history.
 

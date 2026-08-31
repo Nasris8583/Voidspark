@@ -1,0 +1,409 @@
+diff --git a/sql/playerbot_v2/0017_lore_knowledge.sql b/sql/playerbot_v2/0017_lore_knowledge.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..cf7b789a2e71c8a0c798a971188f61f69ee8d31d
+--- /dev/null
++++ b/sql/playerbot_v2/0017_lore_knowledge.sql
+@@ -0,0 +1,62 @@
++-- Migration: 0017_lore_knowledge
++-- Expandable offline lore knowledge used by BotChatReactor.
++
++CREATE TABLE IF NOT EXISTS playerbot_v2_lore_topic (
++    topic_key VARCHAR(64) NOT NULL PRIMARY KEY,
++    aliases TEXT NOT NULL,
++    short_answer VARCHAR(500) NOT NULL,
++    long_answer TEXT NOT NULL,
++    priority SMALLINT NOT NULL DEFAULT 0,
++    enabled TINYINT UNSIGNED NOT NULL DEFAULT 1
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
++
++INSERT INTO playerbot_v2_lore_topic
++(topic_key, aliases, short_answer, long_answer, priority) VALUES
++('azeroth','azeroth|world soul|worldsoul','Azeroth is both the world we defend and the name used for the powerful world-soul sleeping within it.','Azeroth is a world shaped by elemental conflict, Old God corruption, and titan intervention. A powerful world-soul rests within the planet, making Azeroth important to the Titans, the Void, and the Burning Legion.',100),
++('titans','titans|pantheon|aman thul|eonar|norgannon|khaz goroth|golganneth|aggramar','The Titans are vast arcane beings who ordered worlds and empowered keepers to protect Azeroth.','The Pantheon includes Aman''Thul, Eonar, Norgannon, Khaz''goroth, Golganneth, and Aggramar. They found Azeroth, fought the Old Gods through titan-forged servants, and left keepers and facilities to guide and defend the world.',90),
++('old gods','old gods|black empire|yogg saron|yogg|cthun|c thun|nzoth|n zoth|yshaarj|y shaarj','The Old Gods were Void-born parasites that built the Black Empire and corrupted much of ancient Azeroth.','C''Thun, Yogg-Saron, N''Zoth, and Y''Shaarj were sent by the Void Lords. The Titans'' forces defeated and imprisoned them; Y''Shaarj was torn out, wounding Azeroth and leaving behind the Sha.',95),
++('void','void|void lords|shadow','The Void is a cosmic force of possibility, hunger, and madness, opposed most directly by the Light.','Void Lords cannot easily manifest fully in physical reality, so they use agents such as the Old Gods. Void magic reveals countless possible futures, but its whispers can mislead or corrupt those who wield it.',75),
++('light','holy light|the light|naaru','The Light is a cosmic force associated with faith, healing, order, and conviction; the naaru are among its great beings.','The Light answers conviction rather than moral alignment alone. Naaru are luminous beings tied to it, although their cycles can carry them into a darkened Void state before renewal.',70),
++('burning legion','burning legion|legion|demons','The Burning Legion was Sargeras'' demonic army, created to destroy worlds before the Void could corrupt them.','Sargeras formed the Burning Legion from conquered demons and shattered worlds. It invaded Azeroth repeatedly through agents such as the eredar leaders Kil''jaeden and Archimonde until its campaign was broken at Argus.',95),
++('sargeras','sargeras|fallen titan|dark titan','Sargeras is the fallen Titan who created the Burning Legion and sought to destroy Azeroth.','Once the Pantheon''s champion, Sargeras became convinced that annihilation was preferable to a universe ruled by the Void. He created the Burning Legion, manipulated Azeroth''s wars, and was eventually imprisoned with the Pantheon.',95),
++('arthas','arthas|lich king|prince arthas|menethil','Arthas Menethil was a paladin prince who took Frostmourne, became a death knight, and ultimately the Lich King.','Trying to save Lordaeron from the plague, Arthas purged Stratholme and pursued Mal''Ganis to Northrend. Frostmourne consumed his soul; he served Ner''zhul, destroyed his kingdom, and later merged with the Lich King before falling at Icecrown.',100),
++('frostmourne','frostmourne|runeblade','Frostmourne was the Lich King''s cursed runeblade, able to steal and imprison souls.','Arthas claimed Frostmourne in Northrend despite every warning. The blade took his soul and helped turn him into a death knight. Tirion Fordring shattered it with the Ashbringer during the final battle at Icecrown.',80),
++('scourge','scourge|undead scourge|plague of undeath','The Scourge is the undead army created by the Lich King and first unleashed across Lordaeron.','Kil''jaeden transformed Ner''zhul into the first Lich King to prepare Azeroth for the Legion. Through the plague of undeath, necromancers, and death knights, the Scourge devastated Lordaeron and Quel''Thalas.',85),
++('illidan','illidan|illidan stormrage|betrayer|demon hunter','Illidan Stormrage is a night elf sorcerer and demon hunter who sacrificed almost everything to oppose the Legion.','Illidan used dangerous arcane and fel power during the War of the Ancients, earning imprisonment and the title Betrayer. He later ruled Outland, trained demon hunters, and helped force the final war against the Legion before becoming Sargeras'' jailer.',100),
++('malfurion','malfurion|malfurion stormrage','Malfurion Stormrage is the first mortal druid and one of the greatest defenders of nature and the Emerald Dream.','Taught by Cenarius, Malfurion helped resist the Legion during the War of the Ancients. He became archdruid, husband of Tyrande, and a central protector of the kaldorei, nature, and the Emerald Dream.',70),
++('tyrande','tyrande|tyrande whisperwind|night warrior','Tyrande Whisperwind is the high priestess of Elune and a longtime leader of the night elves.','Tyrande fought in the War of the Ancients, freed Illidan when the Legion returned, and led her people beside Malfurion. After Teldrassil burned, she invoked the dangerous power of the Night Warrior to pursue justice.',75),
++('sylvanas','sylvanas|sylvanas windrunner|banshee queen','Sylvanas Windrunner was ranger-general of Silvermoon before Arthas raised her as a banshee.','After regaining freedom from the Lich King, Sylvanas founded and ruled the Forsaken. She later became Horde warchief, burned Teldrassil, shattered the Helm of Domination, and faced judgment for the suffering caused by her pact with the Jailer.',100),
++('thrall','thrall|goel|go el','Thrall, born Go''el, liberated the orcs, founded the modern Horde, and became a powerful shaman.','Raised as a human gladiator, Thrall escaped, united the orc clans, and led them to Kalimdor. He forged the modern Horde with trolls and tauren, helped defeat the Legion at Hyjal, and later served the world as a shaman.',95),
++('jaina','jaina|jaina proudmoore|lady proudmoore','Jaina Proudmoore is a gifted mage, ruler of Kul Tiras, and one of the Alliance''s most influential leaders.','Jaina studied in Dalaran, helped found Theramore, and repeatedly sought peace. The destruction of Theramore hardened her outlook; she later reconciled with Kul Tiras and became its Lord Admiral.',85),
++('anduin','anduin|anduin wrynn|king anduin','Anduin Wrynn is the son of Varian, a priestly Alliance leader shaped by compassion and war.','Anduin favored diplomacy but inherited Stormwind''s crown after Varian died. The Jailer forced him to act as a dominated weapon in the Shadowlands, leaving him to struggle with guilt and rediscover his purpose.',80),
++('alleria','alleria|alleria windrunner|void elf','Alleria Windrunner is a legendary ranger who learned to wield the Void without surrendering to it.','Alleria fought the Horde in the Second War, traveled beyond the Dark Portal, and spent centuries battling the Legion. Under Locus-Walker she learned to control Void power and later aided the void elves.',75),
++('khadgar','khadgar|archmage khadgar','Khadgar is Medivh''s former apprentice and a leading defender of Azeroth against the Horde and Legion.','Khadgar discovered Medivh''s corruption, helped defeat him, and joined the expedition through the Dark Portal. As an archmage of the Kirin Tor, he later united heroes against the Iron Horde and Burning Legion.',75),
++('medivh','medivh|guardian of tirisfal','Medivh was the last Guardian of Tirisfal, possessed by Sargeras and used to open the Dark Portal.','Sargeras'' spirit entered Medivh before birth. As Guardian, Medivh contacted Gul''dan and opened the Dark Portal, beginning the First War. After his death and return, he guided the mortal races toward unity at Mount Hyjal.',85),
++('horde','horde|the horde|warchief','The modern Horde is an alliance of peoples formed around survival, honor, and mutual defense.','Thrall reshaped the Horde after the demonic corruption of the orcs, allying with the Darkspear trolls and tauren. Forsaken, blood elves, goblins, pandaren, allied races, and others later joined; its history includes both heroic unity and destructive warchiefs.',90),
++('alliance','alliance|the alliance|grand alliance','The Alliance is a coalition led historically by human kingdoms and joined by many peoples defending shared ideals and homes.','The modern Alliance grew from the Alliance of Lordaeron formed during the Second War. Humans, dwarves, gnomes, night elves, draenei, worgen, pandaren, and allied races cooperate despite differing cultures and priorities.',90),
++('first war','first war|warcraft orcs humans|fall of stormwind','The First War began when the corrupted Horde invaded Azeroth through the Dark Portal and ended with Stormwind''s fall.','Sargeras, acting through Medivh, worked with Gul''dan to open the Dark Portal. The demon-corrupted orcish Horde invaded the kingdom of Stormwind; King Llane was assassinated and the surviving humans fled north.',80),
++('second war','second war|tides of darkness','The Second War pitted the old Horde against the Alliance of Lordaeron across the Eastern Kingdoms.','Stormwind''s survivors warned the northern kingdoms, which formed the Alliance of Lordaeron. The Horde advanced under Orgrim Doomhammer but fractured, and the Alliance pushed it back through the Dark Portal.',75),
++('third war','third war|reign of chaos|frozen throne','The Third War saw the Scourge destroy Lordaeron and the Legion invade Kalimdor before mortal races united at Mount Hyjal.','The plague turned Lordaeron into the heart of the Scourge, Arthas became a death knight, and Archimonde led the Legion to Kalimdor. Humans, orcs, and night elves united long enough to defeat him at Mount Hyjal.',90),
++('war of the ancients','war of the ancients|sundering|great sundering|azshara','The War of the Ancients was the Legion''s first great invasion of Azeroth and ended with the Sundering.','Queen Azshara and the Highborne opened a portal for the Legion through the Well of Eternity. Resistance led by figures including Malfurion, Tyrande, and Illidan stopped Sargeras, but the Well collapsed and shattered ancient Kalimdor.',90),
++('dragon aspects','dragon aspects|aspects|alexstrasza|nozdormu|malygos|neltharion|ysera','The Dragon Aspects were empowered to protect life, time, magic, earth, and nature on Azeroth.','Alexstrasza, Nozdormu, Malygos, Neltharion, and Ysera were raised from proto-dragons and empowered by the titan keepers. Betrayal, corruption, and loss fractured their unity, but their flights repeatedly defended Azeroth.',90),
++('deathwing','deathwing|neltharion|earth warder|cataclysm','Deathwing was once Neltharion the Earth-Warder before Old God whispers drove him to betrayal and madness.','Neltharion forged the Dragon Soul and turned it against the other flights during the War of the Ancients. As Deathwing he caused the Cataclysm, reshaping Azeroth, before the Aspects and mortal heroes defeated him.',90),
++('dragonflight','dragonflight|dragon isles|primal incarnates|fyrakk|razsageth|iridikron','Dragonflight concerns the return of the dragonflights to the Dragon Isles and the conflict with the Primal Incarnates.','The Dragon Isles awakened, calling the flights home. Alexstrasza sought to renew their legacy while Raszageth and the Primalists freed other Incarnates. The conflict explored titan influence, draconic identity, and the restored unity of the Aspects.',75),
++('emerald dream','emerald dream|dream|emerald nightmare|nightmare','The Emerald Dream is a vast spirit realm tied to Azeroth''s natural life; corruption transformed parts of it into the Nightmare.','The Dream reflects Azeroth''s untamed natural pattern and is closely tied to druids and the green dragonflight. The Nightmare grew through Old God influence and agents such as Xavius, threatening both the Dream and waking world.',75),
++('outland','outland|draenor|dark portal|shattered world','Outland is the shattered remnant of Draenor, homeland of the orcs and refuge of the draenei.','Draenor was damaged by fel corruption and torn apart when Ner''zhul opened many unstable portals. Its surviving fragments became Outland, later contested by the Legion, Illidan, native peoples, and Azeroth''s armies.',80),
++('draenei','draenei|eredar|velen|exodar','The draenei are eredar who fled Sargeras with the prophet Velen and followed the Light across the cosmos.','Velen rejected Sargeras while Kil''jaeden and Archimonde accepted demonic power. The exiles became the draenei, settled on Draenor, suffered the orcs'' genocide, and eventually reached Azeroth aboard the Exodar.',80),
++('orcs','orcs|orc clans|guldan|gul dan|mannoroth','The orcs are a people of Draenor whose clans were deceived and corrupted into the first Horde.','Kil''jaeden used Gul''dan to manipulate the clans, while Mannoroth''s blood bound many orcs to demonic fury. After wars, internment, and liberation, Thrall led them toward shamanism and a new home in Durotar.',85),
++('blood elves','blood elves|sin dorei|quel thalas|sunwell|kael thas','Blood elves are the survivors of Quel''Thalas who took their name after the Scourge destroyed their kingdom and Sunwell.','Prince Kael''thas renamed his people the sin''dorei in memory of their dead. Their struggle with magical withdrawal led through dangerous alliances, while the restored Sunwell eventually became a source of both arcane and holy power.',80),
++('night elves','night elves|kaldorei|teldrassil|elune','Night elves are an ancient people shaped by the Well of Eternity, druidism, and devotion to Elune.','After the Sundering, the kaldorei guarded the new Well at Mount Hyjal and lived under Nordrassil''s protection. They later joined the Alliance; the burning of Teldrassil became one of their greatest tragedies.',80),
++('forsaken','forsaken|undercity|lordaeron undead','The Forsaken are free-willed undead who broke from the Lich King and built a nation from Lordaeron''s ruins.','Led for years by Sylvanas, the Forsaken joined the Horde out of necessity and shared enemies. Their identity centers on free will, survival, and the complicated legacy of Lordaeron and the Royal Apothecary Society.',75),
++('pandaria','pandaria|pandaren|sha|mists of pandaria','Pandaria is an ancient hidden continent where negative emotion could manifest as the Sha.','Emperor Shaohao shrouded Pandaria in mist during the Sundering. Alliance-Horde conflict disturbed the land and empowered the Sha, while Garrosh''s pursuit of power eventually brought war to the Vale of Eternal Blossoms.',75),
++('shadowlands','shadowlands|jailer|zovaal|covenants|maw','The Shadowlands are realms of Death where souls were judged and sent to afterlives until the Jailer''s schemes broke the system.','The Arbiter once directed souls among realms such as Bastion, Maldraxxus, Ardenweald, and Revendreth. Zovaal the Jailer exploited the drought of anima and Sylvanas'' actions, but Azeroth''s champions stopped his attempt to remake reality.',80),
++('the war within','war within|khaz algar|earthen|xal atath|harbinger','The War Within begins the Worldsoul Saga beneath Azeroth, as heroes journey into Khaz Algar and confront Xal''atath''s plans.','The first chapter of the Worldsoul Saga sends heroes into the subterranean lands of Khaz Algar, home of the Earthen. Xal''atath, the Harbinger, manipulates Void forces while Azeroth''s world-soul calls to key heroes.',95),
++('xal atath','xal atath|xalatath|harbinger|black blade','Xal''atath is an ancient Void entity known as the Harbinger, once bound within a blade and now acting through a mortal form.','Xal''atath spent ages imprisoned in the Blade of the Black Empire before securing freedom. She works through prophecy, manipulation, and Void forces, becoming a central threat in the Worldsoul Saga.',90),
++('karesh','karesh|k aresh|ethereals|dimensius','K''aresh is the shattered homeworld of the ethereals, devastated by the Void Lord Dimensius.','Dimensius the All-Devouring attacked K''aresh, leaving it fragmented and its people transformed into energy beings known as ethereals. Its surviving eco-domes and ruins remain tied to the Void''s continuing threat.',80),
++('worldsoul saga','worldsoul saga|midnight|last titan','The Worldsoul Saga is a three-expansion arc: The War Within, Midnight, and The Last Titan.','The saga centers on Azeroth''s world-soul and escalating cosmic threats. The War Within opens beneath Azeroth, Midnight turns toward a major Void assault, and The Last Titan is planned to confront the legacy and return of the Titans.',95)
++ON DUPLICATE KEY UPDATE aliases=VALUES(aliases), short_answer=VALUES(short_answer),
++long_answer=VALUES(long_answer), priority=VALUES(priority), enabled=1;
++
++INSERT INTO playerbot_v2_schema_version (version, sha256) VALUES
++    (17, REPEAT('0', 64))
++ON DUPLICATE KEY UPDATE applied_at = CURRENT_TIMESTAMP;
+diff --git a/src/modules/PlayerbotV2/Bot/BotChatReactor.cpp b/src/modules/PlayerbotV2/Bot/BotChatReactor.cpp
+index 4f7dc034e55602248902ed2a9bdc9c91544aa99d..043c53fa51cc843071fb9931f0a45f0a0aa905ce 100644
+--- a/src/modules/PlayerbotV2/Bot/BotChatReactor.cpp
++++ b/src/modules/PlayerbotV2/Bot/BotChatReactor.cpp
+@@ -9,6 +9,7 @@
+ #include "BotPersonality.h"
+ #include "BotRegistry.h"
+ #include "BotTypes.h"
++#include "LoreKnowledge.h"
+ #include "../Services.h"
+ #include "../Threading/IntentQueue.h"
+ 
+@@ -161,6 +162,7 @@ enum class ReactKind : uint8_t
+     Greeting,      // hi / hello / hey — small social opener
+     DirectAddress, // bot's name appears as a whole word
+     LocationQuery, // "where" / "wo bist du" — bot whispers back its current zone
++    Lore,          // WoW lore/history question, answered from the offline knowledge store
+ };
+ 
+ ReactKind ClassifyMessage(std::string const& norm, std::string const& bot_first_name_lower)
+@@ -234,6 +236,7 @@ ReactKind ClassifyMessage(std::string const& norm, std::string const& bot_first_
+     const bool has_location_query =
+         ContainsWord(norm, "where") || ContainsWord(norm, "wherer") ||
+         ContainsWord(norm, "wo");
++    const bool has_lore_question = LoreKnowledge::Instance().LooksLikeQuestion(norm);
+ 
+     // When a social keyword AND the bot's name are both present, the social
+     // keyword wins ("gz Aron" → Aron replies "ty!", not "yes?"). When only
+@@ -246,6 +249,7 @@ ReactKind ClassifyMessage(std::string const& norm, std::string const& bot_first_
+         if (has_laugh)          return ReactKind::Laugh;
+         if (has_ack)            return ReactKind::Acknowledge;
+         if (has_location_query) return ReactKind::LocationQuery;
++        if (has_lore_question)  return ReactKind::Lore;
+         if (has_greeting)       return ReactKind::Greeting;
+         return ReactKind::DirectAddress;
+     }
+@@ -256,6 +260,7 @@ ReactKind ClassifyMessage(std::string const& norm, std::string const& bot_first_
+     if (has_laugh)          return ReactKind::Laugh;
+     if (has_ack)            return ReactKind::Acknowledge;
+     if (has_greeting)       return ReactKind::Greeting;
++    if (has_lore_question)  return ReactKind::Lore;
+ 
+     return ReactKind::None;
+ }
+@@ -422,6 +427,7 @@ char const* PickReply(ReactKind k, bool addressed, uint32 sel,
+             return PickFromTier(pol, sel, POOL(kRude), POOL(kNeut), POOL(kPolite));
+         }
+         case ReactKind::None:
++        case ReactKind::Lore:
+         default:
+             return nullptr;
+     }
+@@ -726,6 +732,10 @@ void BotChatReactor::React(Player* sender, Group* group, std::string const& msg)
+         {
+             reply_str = BuildLocationReply(c.bot, sel, pol);
+         }
++        else if (c.kind == ReactKind::Lore)
++        {
++            reply_str = LoreKnowledge::Instance().Answer(sender, c.bot, msg, false);
++        }
+         else
+         {
+             char const* reply = PickReply(c.kind, c.addressed, sel, ack_flavor, pol);
+@@ -828,6 +838,10 @@ void BotChatReactor::ReactWhisper(Player* sender, Player* bot, std::string const
+         // path now). Resolves the bot's current AreaTable.db2 zone.
+         reply_str = BuildLocationReply(bot, sel, pol);
+     }
++    else if (kind == ReactKind::Lore)
++    {
++        reply_str = LoreKnowledge::Instance().Answer(sender, bot, msg, true);
++    }
+     else
+     {
+         char const* reply = PickReply(kind, /*addressed=*/true, sel,
+@@ -940,8 +954,15 @@ void BotChatReactor::ReactGuild(Player* sender, uint64 guild_id, std::string con
+     const uint32 sender_low = sender->GetGUID().GetCounter();
+     auto const& chosen = candidates.front();
+     const uint32 sel = sender_low ^ uint32(chosen.id) ^ now_ms;
+-    char const* reply = PickReply(chosen.kind, chosen.addressed, sel);
+-    if (!reply || !*reply) return;
++    std::string reply_str;
++    if (chosen.kind == ReactKind::Lore)
++        reply_str = LoreKnowledge::Instance().Answer(sender, chosen.bot, msg, false);
++    else
++    {
++        char const* reply = PickReply(chosen.kind, chosen.addressed, sel);
++        if (!reply || !*reply) return;
++        reply_str = reply;
++    }
+ 
+     // Stamp the throttle only AFTER confirming a reply will emit. The
+     // earlier-commented intent ("defer the stamp until after we
+@@ -962,10 +983,10 @@ void BotChatReactor::ReactGuild(Player* sender, uint64 guild_id, std::string con
+ 
+     Intent it{};
+     it.bot_id = chosen.id;
+-    it.body   = ChatIntent{GuildChatIntent{std::string(reply)}};
++    it.body   = ChatIntent{GuildChatIntent{reply_str}};
+     // Guild chat is typically less time-pressured than party. Slightly
+     // longer read/type window (1–4s end-to-end).
+-    const uint32 reply_len = uint32(std::strlen(reply));
++    const uint32 reply_len = uint32(reply_str.size());
+     const uint32 read_ms3  = 600u + uint32(norm.size()) * 40u;
+     const uint32 type_ms3  = reply_len * 65u + 250u;
+     const uint32 jitter3   = (uint32(chosen.id) * 2654435761u) % 800u;
+@@ -1062,7 +1083,8 @@ void ReactSpoken(Player* sender, std::string const& msg, bool is_yell,
+                 kind == ReactKind::Greeting ||
+                 kind == ReactKind::Grats    ||
+                 kind == ReactKind::Thanks   ||
+-                kind == ReactKind::LocationQuery;
++                kind == ReactKind::LocationQuery ||
++                kind == ReactKind::Lore;
+             if (!worth_answering) continue;
+         }
+         candidates.push_back({member, mid, ai, kind, addr});
+@@ -1091,8 +1113,9 @@ void ReactSpoken(Player* sender, std::string const& msg, bool is_yell,
+         // same line doesn't flip-flop across re-entries. one_in_n controls
+         // how chatty the channel is (say low, yell high).
+         const uint32 roll = (sender_low ^ uint32(uint8(first_ch)) * 2654435761u);
+-        if (one_in_n > 1 && (roll % one_in_n) != 0) return;
+         const size_t idx = PickReplier(sender_low, first_ch, candidates.size());
++        if (candidates[idx].kind != ReactKind::Lore &&
++            one_in_n > 1 && (roll % one_in_n) != 0) return;
+         chosen = &candidates[idx];
+     }
+ 
+@@ -1126,6 +1149,8 @@ void ReactSpoken(Player* sender, std::string const& msg, bool is_yell,
+     std::string reply_str;
+     if (chosen->kind == ReactKind::LocationQuery)
+         reply_str = BuildLocationReply(chosen->bot, sel, pol);
++    else if (chosen->kind == ReactKind::Lore)
++        reply_str = LoreKnowledge::Instance().Answer(sender, chosen->bot, msg, false);
+     else
+     {
+         char const* reply = PickReply(chosen->kind, chosen->addressed, sel,
+diff --git a/src/modules/PlayerbotV2/Bot/LoreKnowledge.cpp b/src/modules/PlayerbotV2/Bot/LoreKnowledge.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..30654ffa82467682089a6dbdc17eb7924def5712
+--- /dev/null
++++ b/src/modules/PlayerbotV2/Bot/LoreKnowledge.cpp
+@@ -0,0 +1,152 @@
++#include "LoreKnowledge.h"
++
++#include "DatabaseEnv.h"
++#include "GameTime.h"
++#include "Log.h"
++#include "Player.h"
++
++#include <algorithm>
++#include <cctype>
++#include <sstream>
++
++namespace Playerbot {
++
++LoreKnowledge& LoreKnowledge::Instance()
++{
++    static LoreKnowledge store;
++    return store;
++}
++
++std::string LoreKnowledge::Normalize(std::string const& text)
++{
++    std::string out;
++    out.reserve(std::min<size_t>(text.size(), 512));
++    bool space = true;
++    for (unsigned char c : text)
++    {
++        if (out.size() == 512) break;
++        if (std::isalnum(c)) { out.push_back(char(std::tolower(c))); space = false; }
++        else if (!space) { out.push_back(' '); space = true; }
++    }
++    while (!out.empty() && out.back() == ' ') out.pop_back();
++    return out;
++}
++
++bool LoreKnowledge::ContainsPhrase(std::string const& text, std::string const& phrase)
++{
++    size_t pos = text.find(phrase);
++    while (pos != std::string::npos)
++    {
++        bool const left = pos == 0 || text[pos - 1] == ' ';
++        bool const right = pos + phrase.size() == text.size() || text[pos + phrase.size()] == ' ';
++        if (left && right) return true;
++        pos = text.find(phrase, pos + 1);
++    }
++    return false;
++}
++
++void LoreKnowledge::Reload()
++{
++    std::lock_guard lock(mutex_);
++    entries_.clear();
++    contexts_.clear();
++    auto result = CharacterDatabase.Query(
++        "SELECT topic_key, aliases, short_answer, long_answer "
++        "FROM playerbot_v2_lore_topic WHERE enabled = 1 ORDER BY priority DESC, topic_key");
++    if (result)
++    {
++        do
++        {
++            Field* f = result->Fetch();
++            Entry e;
++            e.key = Normalize(f[0].GetString());
++            e.short_answer = f[2].GetString();
++            e.long_answer = f[3].GetString();
++            std::stringstream aliases(f[1].GetString());
++            std::string alias;
++            while (std::getline(aliases, alias, '|'))
++                if (auto n = Normalize(alias); !n.empty()) e.aliases.push_back(std::move(n));
++            if (!e.key.empty()) e.aliases.push_back(e.key);
++            if (!e.aliases.empty() && !e.short_answer.empty()) entries_.push_back(std::move(e));
++        } while (result->NextRow());
++    }
++    loaded_ = true;
++    TC_LOG_INFO("playerbot.v2", "[PlayerbotV2 Lore] Loaded {} lore topics.", entries_.size());
++}
++
++void LoreKnowledge::EnsureLoaded()
++{
++    std::lock_guard lock(mutex_);
++    if (loaded_) return;
++    // Avoid recursive locking by doing the small initial load inline.
++    auto result = CharacterDatabase.Query(
++        "SELECT topic_key, aliases, short_answer, long_answer "
++        "FROM playerbot_v2_lore_topic WHERE enabled = 1 ORDER BY priority DESC, topic_key");
++    if (result)
++    {
++        do
++        {
++            Field* f = result->Fetch();
++            Entry e{Normalize(f[0].GetString()), {}, f[2].GetString(), f[3].GetString()};
++            std::stringstream aliases(f[1].GetString());
++            std::string alias;
++            while (std::getline(aliases, alias, '|'))
++                if (auto n = Normalize(alias); !n.empty()) e.aliases.push_back(std::move(n));
++            e.aliases.push_back(e.key);
++            entries_.push_back(std::move(e));
++        } while (result->NextRow());
++    }
++    loaded_ = true;
++}
++
++bool LoreKnowledge::LooksLikeQuestion(std::string const& message) const
++{
++    std::string const n = Normalize(message);
++    static char const* cues[] = { "who", "what", "why", "how", "where", "when",
++        "tell me", "explain", "lore", "history", "story", "what happened", "do you know" };
++    for (char const* cue : cues)
++        if (ContainsPhrase(n, cue)) return true;
++    return false;
++}
++
++std::string LoreKnowledge::Answer(Player const* asker, Player const* speaker,
++                                  std::string const& message, bool detailed)
++{
++    EnsureLoaded();
++    std::lock_guard lock(mutex_);
++    std::string const n = Normalize(message);
++    uint64_t const askerId = asker ? asker->GetGUID().GetCounter() : 0;
++    uint32_t const now = GameTime::GetGameTimeMS();
++
++    Entry const* chosen = nullptr;
++    size_t score = 0;
++    bool const followup = ContainsPhrase(n, "tell me more") || ContainsPhrase(n, "more lore") ||
++        ContainsPhrase(n, "what happened next") || ContainsPhrase(n, "go on");
++    if (followup)
++    {
++        auto it = contexts_.find(askerId);
++        if (it != contexts_.end() && now - it->second.at_ms < 10u * 60u * 1000u)
++            for (Entry const& e : entries_) if (e.key == it->second.topic) { chosen = &e; break; }
++        detailed = true;
++    }
++    if (!chosen)
++    {
++        for (Entry const& e : entries_)
++            for (std::string const& alias : e.aliases)
++                if (alias.size() >= 3 && ContainsPhrase(n, alias) && alias.size() > score)
++                { chosen = &e; score = alias.size(); }
++    }
++
++    if (!chosen)
++        return "I don't know that part well. Try asking me about Azeroth, the Titans, the Horde, the Alliance, the Old Gods, the Burning Legion, Arthas, Illidan, or the Dragon Aspects.";
++
++    contexts_[askerId] = {chosen->key, now};
++    std::string answer = detailed && !chosen->long_answer.empty() ? chosen->long_answer : chosen->short_answer;
++    if (speaker && speaker->GetTeamId() == TEAM_HORDE && chosen->key == "horde")
++        answer = "From our side of the story: " + answer;
++    else if (speaker && speaker->GetTeamId() == TEAM_ALLIANCE && chosen->key == "alliance")
++        answer = "From our side of the story: " + answer;
++    return answer;
++}
++
++} // namespace Playerbot
+diff --git a/src/modules/PlayerbotV2/Bot/LoreKnowledge.h b/src/modules/PlayerbotV2/Bot/LoreKnowledge.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..0dad059c1a663a342997f2a8915bece992a8e0ca
+--- /dev/null
++++ b/src/modules/PlayerbotV2/Bot/LoreKnowledge.h
+@@ -0,0 +1,42 @@
++#pragma once
++
++#include <cstdint>
++#include <mutex>
++#include <string>
++#include <unordered_map>
++#include <vector>
++
++class Player;
++
++namespace Playerbot {
++
++class LoreKnowledge
++{
++public:
++    static LoreKnowledge& Instance();
++    void Reload();
++    bool LooksLikeQuestion(std::string const& message) const;
++    std::string Answer(Player const* asker, Player const* speaker,
++                       std::string const& message, bool detailed);
++
++private:
++    struct Entry
++    {
++        std::string key;
++        std::vector<std::string> aliases;
++        std::string short_answer;
++        std::string long_answer;
++    };
++    struct Context { std::string topic; uint32_t at_ms = 0; };
++
++    void EnsureLoaded();
++    static std::string Normalize(std::string const& text);
++    static bool ContainsPhrase(std::string const& text, std::string const& phrase);
++
++    mutable std::mutex mutex_;
++    bool loaded_ = false;
++    std::vector<Entry> entries_;
++    std::unordered_map<uint64_t, Context> contexts_;
++};
++
++} // namespace Playerbot
