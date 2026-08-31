@@ -1,0 +1,1514 @@
+diff --git a/build-playerbot.sh b/build-playerbot.sh
+index bbbf55f9..c26a6d7b 100755
+--- a/build-playerbot.sh
++++ b/build-playerbot.sh
+@@ -151,7 +151,7 @@ cmake "${SOURCE_DIR}" \
+     -DCMAKE_CXX_STANDARD=20 \
+     -DCMAKE_CXX_FLAGS="-Wall -Wextra -Wno-unused-parameter -Werror=return-type" \
+     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+-    -DBUILD_PLAYERBOT=1 \
++    -DBUILD_PLAYERBOT_V2=1 \
+     -DTOOLS=0 \
+     -DSCRIPTS=static \
+     -DWITH_WARNINGS=1 \
+diff --git a/cmake/macros/FindMySQL.cmake b/cmake/macros/FindMySQL.cmake
+index f52f2882..eacee57f 100644
+--- a/cmake/macros/FindMySQL.cmake
++++ b/cmake/macros/FindMySQL.cmake
+@@ -323,8 +323,27 @@ if(MySQL_lib_WANTED AND MySQL_lib_FOUND)
+     RUN_OUTPUT_VARIABLE MYSQL_VERSION_DETECTION_RUN_OUTPUT
+   )
+
+-  string(JSON MYSQL_VERSION GET "${MYSQL_VERSION_DETECTION_RUN_OUTPUT}" "version")
+-  string(JSON MYSQL_FLAVOR GET "${MYSQL_VERSION_DETECTION_RUN_OUTPUT}" "flavor")
++  if(MYSQL_VERSION_DETECTED EQUAL 0 AND MYSQL_VERSION_DETECTION_RUN_OUTPUT)
++    string(JSON MYSQL_VERSION GET "${MYSQL_VERSION_DETECTION_RUN_OUTPUT}" "version")
++    string(JSON MYSQL_FLAVOR GET "${MYSQL_VERSION_DETECTION_RUN_OUTPUT}" "flavor")
++  else()
++    # A Windows try_run can compile successfully but fail to start when the
++    # client DLL is not on the configure process' search path.  The version is
++    # also authoritative in mysql_version.h, so use it instead of failing while
++    # parsing an empty RUN_OUTPUT_VARIABLE.
++    file(STRINGS "${MYSQL_INCLUDE_DIR}/mysql_version.h" MYSQL_VERSION_HEADER
++      REGEX "^#define (MYSQL_SERVER_VERSION|MARIADB_VERSION_ID)")
++    string(REGEX MATCH "MYSQL_SERVER_VERSION[ \t]+\"([^\"]+)\"" _mysql_version_match "${MYSQL_VERSION_HEADER}")
++    set(MYSQL_VERSION "${CMAKE_MATCH_1}")
++    if(MYSQL_VERSION_HEADER MATCHES "MARIADB_VERSION_ID")
++      set(MYSQL_FLAVOR "MariaDB")
++    else()
++      set(MYSQL_FLAVOR "MySQL")
++    endif()
++    if(NOT MYSQL_VERSION)
++      message(FATAL_ERROR "Could not determine MySQL version from try_run or ${MYSQL_INCLUDE_DIR}/mysql_version.h")
++    endif()
++  endif()
+
+   if(MYSQL_MIN_VERSION_${MYSQL_FLAVOR} VERSION_GREATER MYSQL_VERSION)
+     message(FATAL_ERROR "Found ${MYSQL_FLAVOR} version: \"${MYSQL_VERSION}\", but required is at least \"${MYSQL_MIN_VERSION_${MYSQL_FLAVOR}}\"")
+diff --git a/configure_debug.bat b/configure_debug.bat
+index 00927f6e..5d91c6af 100644
+--- a/configure_debug.bat
++++ b/configure_debug.bat
+@@ -57,7 +57,7 @@ echo.
+
+ "%CMAKE_EXE%" .. ^
+     -DCMAKE_BUILD_TYPE=Debug ^
+-    -DBUILD_PLAYERBOT=1 ^
++    -DBUILD_PLAYERBOT_V2=1 ^
+     -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" ^
+     -DBOOST_ROOT="%BOOST_ROOT%" ^
+     -DBOOST_INCLUDEDIR="%BOOST_INCLUDEDIR%" ^
+diff --git a/configure_release.bat b/configure_release.bat
+index 88339d4a..3dc52a45 100644
+--- a/configure_release.bat
++++ b/configure_release.bat
+@@ -57,7 +57,7 @@ echo.
+
+ "%CMAKE_EXE%" .. ^
+     -DCMAKE_BUILD_TYPE=Release ^
+-    -DBUILD_PLAYERBOT=1 ^
++    -DBUILD_PLAYERBOT_V2=1 ^
+     -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" ^
+     -DBOOST_ROOT="%BOOST_ROOT%" ^
+     -DBOOST_INCLUDEDIR="%BOOST_INCLUDEDIR%" ^
+diff --git a/configure_test.bat b/configure_test.bat
+index a20838ed..a0fdcf27 100644
+--- a/configure_test.bat
++++ b/configure_test.bat
+@@ -38,7 +38,7 @@ echo.
+
+ cmake .. -G "Visual Studio 17 2022" ^
+     -DCMAKE_BUILD_TYPE=Debug ^
+-    -DBUILD_PLAYERBOT=1 ^
++    -DBUILD_PLAYERBOT_V2=1 ^
+     -DBUILD_TESTING=ON ^
+     -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" ^
+     -DBOOST_ROOT="%BOOST_ROOT%" ^
+diff --git a/dep/boost/CMakeLists.txt b/dep/boost/CMakeLists.txt
+index 594249ef..6e1af734 100644
+--- a/dep/boost/CMakeLists.txt
++++ b/dep/boost/CMakeLists.txt
+@@ -61,6 +61,22 @@ if(NOT Boost_FOUND)
+   endif()
+ endif()
+
++# vcpkg's Boost config packages publish Debug and Release imports. With a
++# single-config RelWithDebInfo generator CMake otherwise falls back to the
++# first imported configuration (Debug), mixing debug Boost DLLs with the
++# release CRT. Map only the Boost targets; a global mapping also affects
++# imported dependencies such as MySQL which do not publish a Release config.
++if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
++  get_property(_imported_targets DIRECTORY PROPERTY IMPORTED_TARGETS)
++  foreach(_imported_target IN LISTS _imported_targets)
++    if(_imported_target MATCHES "^Boost::")
++      set_property(TARGET ${_imported_target} PROPERTY
++        MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
++    endif()
++  endforeach()
++  unset(_imported_targets)
++endif()
++
+ add_library(boost INTERFACE)
+
+ target_link_libraries(boost
+diff --git a/dep/openssl_ed25519/CMakeLists.txt b/dep/openssl_ed25519/CMakeLists.txt
+index 3e1be229..45c5c140 100644
+--- a/dep/openssl_ed25519/CMakeLists.txt
++++ b/dep/openssl_ed25519/CMakeLists.txt
+@@ -50,5 +50,5 @@ if(UNIX)
+ elseif(WIN32)
+   install(TARGETS openssl_ed25519
+     RUNTIME
+-      DESTINATION "${CMAKE_INSTALL_PREFIX}")
++      DESTINATION ".")
+ endif()
+diff --git a/scripts/verify_playerbot_dependencies.sh b/scripts/verify_playerbot_dependencies.sh
+index fd2dcdd4..6a12cfe8 100644
+--- a/scripts/verify_playerbot_dependencies.sh
++++ b/scripts/verify_playerbot_dependencies.sh
+@@ -212,11 +212,11 @@ main() {
+
+     if [ $FAILED -eq 0 ]; then
+         echo -e "${GREEN}🎉 All dependencies verified successfully!${NC}"
+-        echo -e "${GREEN}You can now build TrinityCore with BUILD_PLAYERBOT=ON${NC}"
++        echo -e "${GREEN}You can now build TrinityCore with BUILD_PLAYERBOT_V2=ON${NC}"
+         echo ""
+         echo -e "${BLUE}Build commands:${NC}"
+         echo "  mkdir build && cd build"
+-        echo "  cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_PLAYERBOT=ON"
++        echo "  cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_PLAYERBOT_V2=ON"
+         echo "  make -j\$(nproc)"
+         exit 0
+     else
+@@ -230,4 +230,4 @@ main() {
+ }
+
+ # Run verification
+-main
+\ No newline at end of file
++main
+diff --git a/sql/playerbot_v2/0015_name_pool.sql b/sql/playerbot_v2/0015_name_pool.sql
+index 40cacfc7..83ef828f 100644
+--- a/sql/playerbot_v2/0015_name_pool.sql
++++ b/sql/playerbot_v2/0015_name_pool.sql
+@@ -14,7 +14,7 @@
+ CREATE TABLE IF NOT EXISTS `playerbots_names` (
+   `name_id` int unsigned NOT NULL AUTO_INCREMENT,
+   `name` varchar(12) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+-  `gender` tinyint unsigned NOT NULL DEFAULT '2' COMMENT '0=male, 1=female, 2=neutral',
++  `gender` tinyint unsigned NOT NULL DEFAULT '0' COMMENT 'Imported race/gender category 0..17; even=male, odd=female',
+   `race_mask` int unsigned NOT NULL DEFAULT '4294967295' COMMENT 'Bitmask of compatible races',
+   `is_taken` tinyint(1) NOT NULL DEFAULT '0',
+   `is_used` tinyint(1) NOT NULL DEFAULT '0',
+diff --git a/sql/playerbot_v2/0016_handcrafted_road.sql b/sql/playerbot_v2/0016_handcrafted_road.sql
+new file mode 100644
+index 00000000..c985f1d8
+--- /dev/null
++++ b/sql/playerbot_v2/0016_handcrafted_road.sql
+@@ -0,0 +1,20 @@
++-- Migration: 0016_handcrafted_road
++-- Purpose: Runtime storage for operator-authored navigation road segments.
++-- Reverts: yes (DROP TABLE handcrafted_road).
++
++CREATE TABLE IF NOT EXISTS handcrafted_road (
++    id        INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
++    mapId     INT UNSIGNED NOT NULL,
++    fromX     FLOAT NOT NULL,
++    fromY     FLOAT NOT NULL,
++    toX       FLOAT NOT NULL,
++    toY       FLOAT NOT NULL,
++    width     FLOAT NOT NULL,
++    comment   VARCHAR(255) NULL,
++    verified  TINYINT UNSIGNED NOT NULL DEFAULT 0,
++    KEY idx_handcrafted_road_map (mapId)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
++
++INSERT INTO playerbot_v2_schema_version (version, sha256) VALUES
++    (16, REPEAT('0', 64))
++ON DUPLICATE KEY UPDATE applied_at = CURRENT_TIMESTAMP;
+diff --git a/sql/playerbot_v2/README.md b/sql/playerbot_v2/README.md
+index b87714d3..b039f006 100644
+--- a/sql/playerbot_v2/README.md
++++ b/sql/playerbot_v2/README.md
+@@ -2,6 +2,9 @@
+
+ Per `v2/SCHEMA.md`. Migration files in this directory are numbered, append-only, and idempotent. Run by `Persistence/PlayerbotMigrationMgr` at module init.
+
++CMake also deploys this directory beside the server configuration. Installed
++servers therefore do not require the original source checkout at first boot.
++
+ For full setup instructions (schema creation, config, world fixes) see
+ `v2/INSTALL.md`.
+
+@@ -12,6 +15,7 @@ Applied in ascending numeric order; each file records itself in
+ - `0001_init.sql` — schema_version + core tables (account, character, personality, preferences, population_target)
+ - `0002`–`0014` — owner/squad control, talent builds, population columns, guild metadata, world metadata, leveling zone, fleet vitals, archetype, craft orders, stuck-objective ledger
+ - `0015_name_pool.sql` — the curated ~107k-row random bot **name pool** (`playerbots_names`), shipped with use-state reset so a fresh install starts with the whole pool available
++- auxiliary versions `10001`, `10003`, `10004`, and `10005` — route/navigation schema and data from `src/modules/PlayerbotV2/sql/shared/`, applied to CharacterDatabase by the same runner
+
+ ## Discipline
+ - Never edit a numbered migration after it ships. Add a new one to amend.
+diff --git a/src/modules/PlayerbotV2/Bot/Dungeon/DungeonScript.cpp b/src/modules/PlayerbotV2/Bot/Dungeon/DungeonScript.cpp
+index 89240d06..17ccf136 100644
+--- a/src/modules/PlayerbotV2/Bot/Dungeon/DungeonScript.cpp
++++ b/src/modules/PlayerbotV2/Bot/Dungeon/DungeonScript.cpp
+@@ -2,7 +2,6 @@
+ #include "../BotSnapshotView.h"
+ #include "../BotSnapshot.h"
+ #include "DatabaseEnv.h"
+-#include "Config.h"
+ #include "Log.h"
+ #include <algorithm>
+
+@@ -14,19 +13,8 @@ inline uint64_t MakeKey(uint32_t map_id, uint32_t difficulty)
+     return (static_cast<uint64_t>(map_id) << 8) | (difficulty & 0xFFu);
+ }
+
+-// Dungeon route waypoints are STATIC, map-derived nav data (chain-pathfound
+-// from the navmesh) — identical across every realm running the same maps, just
+-// like the shared handcrafted_road table. They live in the shared playerbot
+-// schema (Playerbot.SharedDatabase, default "playerbot") so all servers share
+-// ONE copy instead of duplicating them in every realm's world DB, and queried
+-// via CharacterDatabase with a schema qualifier (mirrors BotNamePool /
+-// WorldMetadata — same MySQL server, cross-schema reference).
+-std::string const& SharedDb()
+-{
+-    static std::string const db =
+-        sConfigMgr->GetStringDefault("Playerbot.SharedDatabase", "playerbot");
+-    return db;
+-}
++// Dungeon route waypoints are static, map-derived navigation data. They use
++// CharacterDatabase like the migration runner and the other V2 metadata.
+ }
+
+ void DungeonScriptMgr::Register(std::unique_ptr<DungeonScript> script)
+@@ -145,7 +133,7 @@ DungeonAdvice DungeonScriptMgr::GetAdvice(BotSnapshotView const& s) const
+     // changed correctness (matching the same ID twice is a no-op) but
+     // they wasted compares and made the audit log noisier.
+     DedupAdvice(merged);
+-    // Inject the DB route_waypoints (the shared playerbot DB is the single
++    // Inject the DB route_waypoints (CharacterDatabase is the single
+     // route source — no script authors chains anymore; the empty() guard is
+     // kept as a safety valve for any future script override). Copy the
+     // shared_ptr under a brief shared_lock so a concurrent hot-reload
+@@ -182,8 +170,7 @@ size_t DungeonScriptMgr::LoadGeneratedRoutes()
+     size_t count = 0;
+     QueryResult result = CharacterDatabase.Query(fmt::format(
+         "SELECT map_id, difficulty, position_x, position_y, position_z "
+-        "FROM {}.playerbot_dungeon_routes ORDER BY map_id, difficulty, seq",
+-        SharedDb()).c_str());
++        "FROM playerbot_dungeon_routes ORDER BY map_id, difficulty, seq").c_str());
+     if (result)
+     {
+         do
+@@ -203,8 +190,7 @@ size_t DungeonScriptMgr::LoadGeneratedRoutes()
+     }
+     if (count == 0)
+         TC_LOG_INFO("playerbot.v2",
+-            "[DungeonRoutes] {}.playerbot_dungeon_routes empty/absent — no route waypoints.",
+-            SharedDb());
++            "[DungeonRoutes] playerbot_dungeon_routes empty/absent — no route waypoints.");
+     else
+         TC_LOG_INFO("playerbot.v2",
+             "[DungeonRoutes] loaded {} route waypoint(s) across {} dungeon(s).",
+@@ -221,8 +207,8 @@ size_t DungeonScriptMgr::LoadNavLinks()
+     size_t count = 0;
+     QueryResult result = CharacterDatabase.Query(fmt::format(
+         "SELECT id, map_id, from_x, from_y, from_z, to_x, to_y, to_z, "
+-        "radius, bidirectional FROM {}.playerbot_nav_links WHERE verified=1 "
+-        "ORDER BY map_id, id", SharedDb()).c_str());
++        "radius, bidirectional FROM playerbot_nav_links WHERE verified=1 "
++        "ORDER BY map_id, id").c_str());
+     if (result)
+     {
+         do
+diff --git a/src/modules/PlayerbotV2/Bot/Dungeon/DungeonScript.h b/src/modules/PlayerbotV2/Bot/Dungeon/DungeonScript.h
+index a67ab39b..a5ad3484 100644
+--- a/src/modules/PlayerbotV2/Bot/Dungeon/DungeonScript.h
++++ b/src/modules/PlayerbotV2/Bot/Dungeon/DungeonScript.h
+@@ -220,7 +220,7 @@ public:
+ // A DB-authored traversal link: "from A you can just MOVE to B" (jump a real
+ // geometric split, walk an unmeshed-but-walkable stretch) — the behavioral
+ // alternative to baking off-mesh connections into the binary mmap tiles.
+-// Owner-verified rows live in {SharedDb()}.playerbot_nav_links (editor-
++// Owner-verified rows live in CharacterDatabase.playerbot_nav_links (editor-
+ // authored, hot-reloadable via .playerbot reloadroutes); the dungeon stepper
+ // consumes them when the on-mesh path dead-ends at a link mouth, committing
+ // the crossing through the existing set_dungeon_cross/DungeonHonorCross
+@@ -267,7 +267,7 @@ public:
+     size_t size() const { return scripts_.size(); }
+
+     // Load dungeon route_waypoints from the SHARED playerbot DB
+-    // ({Playerbot.SharedDatabase}.playerbot_dungeon_routes — populated by
++    // (CharacterDatabase.playerbot_dungeon_routes — populated by
+     // gen_dungeon_routes.py and/or the world editor). Keyed by
+     // (map_id<<8)|difficulty; INJECTED by GetAdvice for dungeons whose script
+     // left route_waypoints empty (the DB is the single route source — no script
+@@ -279,7 +279,7 @@ public:
+     // is needed. Returns the number of waypoints loaded.
+     size_t LoadGeneratedRoutes();
+
+-    // Load DB-authored traversal links ({SharedDb()}.playerbot_nav_links).
++    // Load DB-authored traversal links (CharacterDatabase.playerbot_nav_links).
+     // Same hot-reload pattern as the routes (build off-lock, swap under
+     // routes_mutex_); called at init + from `.playerbot reloadroutes`.
+     // Returns the number of links loaded.
+diff --git a/src/modules/PlayerbotV2/Bot/Dungeon/Scripts/RagefireChasmScript.cpp b/src/modules/PlayerbotV2/Bot/Dungeon/Scripts/RagefireChasmScript.cpp
+index 48930f96..dd9371ff 100644
+--- a/src/modules/PlayerbotV2/Bot/Dungeon/Scripts/RagefireChasmScript.cpp
++++ b/src/modules/PlayerbotV2/Bot/Dungeon/Scripts/RagefireChasmScript.cpp
+@@ -26,7 +26,7 @@ public:
+     DungeonAdvice get_advice(BotSnapshotView const& /*s*/) const override
+     {
+         DungeonAdvice a;
+-        // Boss order MUST match the DB crumb-route order (wowc_playerbot.
++        // Boss order MUST match the DB crumb-route order (CharacterDatabase.
+         // playerbot_dungeon_routes map389, 54 crumbs): the route descends into
+         // Adarogg's pit FIRST (crumbs 1-13, entrance→-285,-54,-61) then rises to
+         // Koranthal (24) → Slagmaw (32) → Gordoth (53). That IS the TC encounter
+diff --git a/src/modules/PlayerbotV2/Fleet/BotComposition.cpp b/src/modules/PlayerbotV2/Fleet/BotComposition.cpp
+index 682432ed..81aed843 100644
+--- a/src/modules/PlayerbotV2/Fleet/BotComposition.cpp
++++ b/src/modules/PlayerbotV2/Fleet/BotComposition.cpp
+@@ -383,7 +383,7 @@ BotComposition::Pick BotComposition::Roll(uint8 race_hint, uint8 cls_hint,
+         p.cls    = cls;
+         p.gender = (gender_hint == 0xFF) ? PickGender() : gender_hint;
+         // Prefer the curated name pool (107K names in
+-        // wowc_playerbot.playerbots_names, all pre-validated). Falls back
++        // CharacterDatabase.playerbots_names, all pre-validated). Falls back
+         // to the syllable generator if the pool is exhausted or returns
+         // empty for the gender. Pool names are guaranteed to pass
+         // ObjectMgr::CheckPlayerName, fixing the create_fail observed
+diff --git a/src/modules/PlayerbotV2/Fleet/BotNamePool.cpp b/src/modules/PlayerbotV2/Fleet/BotNamePool.cpp
+index c161ba16..90f6282f 100644
+--- a/src/modules/PlayerbotV2/Fleet/BotNamePool.cpp
++++ b/src/modules/PlayerbotV2/Fleet/BotNamePool.cpp
+@@ -1,6 +1,5 @@
+ #include "BotNamePool.h"
+
+-#include "Config.h"
+ #include "DatabaseEnv.h"
+ #include "Log.h"
+
+@@ -37,6 +36,18 @@ struct NameEntry
+     uint8       gender;     // 0 male, 1 female, 2 universal
+ };
+
++// The imported AzerothCore seed encodes race+gender as 18 categories:
++// generic male/female, then eight race-specific male/female pairs. V2 does
++// not yet request names by race, but the low bit still gives the correct
++// gender for every category.
++constexpr uint8 NormalizeSeedGender(uint8 category)
++{
++    return category <= 17 ? category % 2 : 2;
++}
++
++static_assert(NormalizeSeedGender(0) == 0 && NormalizeSeedGender(16) == 0);
++static_assert(NormalizeSeedGender(1) == 1 && NormalizeSeedGender(17) == 1);
++
+ std::mutex                                    g_mutex;
+ std::vector<NameEntry>                        g_male;
+ std::vector<NameEntry>                        g_female;
+@@ -60,18 +71,6 @@ NameEntry PopRandom_locked(std::vector<NameEntry>& v)
+     return e;
+ }
+
+-// Single config-driven home for all instance-shared playerbot data
+-// (Playerbot.SharedDatabase, default "wowc_playerbot"). Read once. Used to
+-// qualify cross-DB queries so swapping the active world/character DB never
+-// strands the shared bot data. NOTE: the realm-specific `characters.characters`
+-// join below is intentionally NOT this schema.
+-std::string const& SharedDb()
+-{
+-    static std::string const db =
+-        sConfigMgr->GetStringDefault("Playerbot.SharedDatabase", "playerbot");
+-    return db;
+-}
+-
+ std::string EscapeForSql(std::string const& s)
+ {
+     std::string out;
+@@ -95,9 +94,9 @@ void Load_locked()
+
+     // Load every is_used=0 row. ORDER BY name_id keeps the load deterministic
+     // for testing; the in-memory pick is random so distribution is uniform.
+-    auto res = CharacterDatabase.Query(fmt::format(
+-        "SELECT name_id, name, gender FROM {}.playerbots_names "
+-        "WHERE is_used=0 ORDER BY name_id", SharedDb()).c_str());
++    auto res = CharacterDatabase.Query(
++        "SELECT name_id, name, gender FROM playerbots_names "
++        "WHERE is_used=0 ORDER BY name_id");
+     if (!res)
+     {
+         TC_LOG_WARN("playerbot.v2", "[BotNamePool] Load: query returned no rows.");
+@@ -110,7 +109,7 @@ void Load_locked()
+         NameEntry e;
+         e.name_id = f[0].GetUInt32();
+         e.name    = f[1].GetString();
+-        e.gender  = f[2].GetUInt8();
++        e.gender  = NormalizeSeedGender(f[2].GetUInt8());
+         g_name_to_meta[e.name] = {e.name_id, e.gender};
+         switch (e.gender)
+         {
+@@ -155,8 +154,8 @@ std::string BotNamePool::Acquire(uint8 gender)
+         // Async-persist the claim. PExecute doesn't block; ordering is
+         // fine because the in-memory pop already prevents re-issue.
+         CharacterDatabase.Execute(fmt::format(
+-            "UPDATE {}.playerbots_names SET is_used=1 WHERE name_id={}",
+-            SharedDb(), e.name_id).c_str());
++            "UPDATE playerbots_names SET is_used=1 WHERE name_id={}",
++            e.name_id).c_str());
+         // Keep the reverse map so Release can find this entry.
+         g_name_to_meta[e.name] = {e.name_id, e.gender};
+         return e.name;
+@@ -170,8 +169,8 @@ void BotNamePool::BindToCharacter(std::string const& name, uint64 guid_low)
+ {
+     // No mutex needed — purely a DB update; doesn't touch in-memory pool.
+     CharacterDatabase.Execute(fmt::format(
+-        "UPDATE {}.playerbots_names SET used_by_guid={} WHERE name='{}'",
+-        SharedDb(), guid_low, EscapeForSql(name)).c_str());
++        "UPDATE playerbots_names SET used_by_guid={} WHERE name='{}'",
++        guid_low, EscapeForSql(name)).c_str());
+ }
+
+ void BotNamePool::Release(std::string const& name)
+@@ -195,9 +194,9 @@ void BotNamePool::Release(std::string const& name)
+     }
+
+     CharacterDatabase.Execute(fmt::format(
+-        "UPDATE {}.playerbots_names SET is_used=0, used_by_guid=NULL "
++        "UPDATE playerbots_names SET is_used=0, used_by_guid=NULL "
+         "WHERE name_id={}",
+-        SharedDb(), name_id).c_str());
++        name_id).c_str());
+ }
+
+ void BotNamePool::ReconcileOnBoot()
+@@ -205,10 +204,9 @@ void BotNamePool::ReconcileOnBoot()
+     // First: clean up DB orphans (is_used=1 but the character doesn't exist).
+     // This catches SQL-wipes / mid-create crashes that bypassed Release.
+     auto orphan_res = CharacterDatabase.Query(fmt::format(
+-        "SELECT pn.name_id FROM {}.playerbots_names pn "
+-        "LEFT JOIN characters.characters c ON c.guid = pn.used_by_guid "
+-        "WHERE pn.is_used = 1 AND (pn.used_by_guid IS NULL OR c.guid IS NULL)",
+-        SharedDb()).c_str());
++        "SELECT pn.name_id FROM playerbots_names pn "
++        "LEFT JOIN characters c ON c.guid = pn.used_by_guid "
++        "WHERE pn.is_used = 1 AND (pn.used_by_guid IS NULL OR c.guid IS NULL)").c_str());
+
+     uint32 released = 0;
+     if (orphan_res)
+@@ -216,8 +214,8 @@ void BotNamePool::ReconcileOnBoot()
+         do {
+             const uint32 name_id = orphan_res->Fetch()[0].GetUInt32();
+             CharacterDatabase.Execute(fmt::format(
+-                "UPDATE {}.playerbots_names SET is_used=0, used_by_guid=NULL "
+-                "WHERE name_id={}", SharedDb(), name_id).c_str());
++                "UPDATE playerbots_names SET is_used=0, used_by_guid=NULL "
++                "WHERE name_id={}", name_id).c_str());
+             ++released;
+         } while (orphan_res->NextRow());
+     }
+diff --git a/src/modules/PlayerbotV2/Fleet/BotNamePool.h b/src/modules/PlayerbotV2/Fleet/BotNamePool.h
+index 5fcff71e..df3d18a1 100644
+--- a/src/modules/PlayerbotV2/Fleet/BotNamePool.h
++++ b/src/modules/PlayerbotV2/Fleet/BotNamePool.h
+@@ -1,5 +1,5 @@
+ // BotNamePool — central allocator for bot character names backed by
+-// the pre-curated `wowc_playerbot.playerbots_names` table (107K rows).
++// the pre-curated `playerbots_names` table in CharacterDatabase (107K rows).
+ //
+ // Each call to Acquire(gender) picks an unused name and atomically
+ // flags it as taken. Names are released on bot deletion. On boot,
+@@ -24,13 +24,13 @@ class BotNamePool
+ {
+ public:
+     // Reserve a name from the pool. Filters by gender so the name fits
+-    // the character's appearance (the table has gender=0 male, 1 female,
+-    // 2 universal — universal names match any gender). Returns empty if
++    // the character's appearance. The imported seed's 0..17 race/gender
++    // categories are normalized by parity (even male, odd female). Returns empty if
+     // the pool is exhausted (caller should fall back to syllable gen).
+     //
+-    // Cross-DB: the names table lives in `wowc_playerbot`, but the
++    // The names table and bot characters use the same CharacterDatabase;
+     // `playerbot` MySQL user has access to both schemas, so the queries
+-    // explicitly qualify with `wowc_playerbot.playerbots_names`.
++    // use the same CharacterDatabase connection as the migration runner.
+     static std::string Acquire(uint8 gender);
+
+     // Bind a previously-acquired name to a created character. Stores
+diff --git a/src/modules/PlayerbotV2/Persistence/PlayerbotMigrationMgr.cpp b/src/modules/PlayerbotV2/Persistence/PlayerbotMigrationMgr.cpp
+index 7d4f416a..a14b53be 100644
+--- a/src/modules/PlayerbotV2/Persistence/PlayerbotMigrationMgr.cpp
++++ b/src/modules/PlayerbotV2/Persistence/PlayerbotMigrationMgr.cpp
+@@ -1,5 +1,6 @@
+ #include "PlayerbotMigrationMgr.h"
+ #include "BuiltInConfig.h"
++#include "Config.h"
+ #include "DatabaseEnv.h"
+ #include "Log.h"
+ #include <algorithm>
+@@ -12,6 +13,71 @@
+
+ namespace Playerbot {
+
++namespace MigrationDetail {
++
++std::vector<std::string> SplitSqlStatements(std::string_view sql)
++{
++    enum class State { Normal, SingleQuote, DoubleQuote, Backtick, LineComment, BlockComment };
++    State state = State::Normal;
++    std::vector<std::string> statements;
++    std::string current;
++    current.reserve(sql.size());
++    auto flush = [&]()
++    {
++        size_t const begin = current.find_first_not_of(" \t\r\n");
++        if (begin != std::string::npos)
++        {
++            size_t const end = current.find_last_not_of(" \t\r\n");
++            statements.emplace_back(current.substr(begin, end - begin + 1));
++        }
++        current.clear();
++    };
++
++    for (size_t i = 0; i < sql.size(); ++i)
++    {
++        char const c = sql[i];
++        char const next = i + 1 < sql.size() ? sql[i + 1] : '\0';
++        if (state == State::LineComment)
++        {
++            if (c == '\n') { state = State::Normal; current.push_back('\n'); }
++            continue;
++        }
++        if (state == State::BlockComment)
++        {
++            if (c == '*' && next == '/') { state = State::Normal; ++i; current.push_back(' '); }
++            continue;
++        }
++        if (state == State::Normal)
++        {
++            if (c == '-' && next == '-' &&
++                (i + 2 == sql.size() || std::isspace(static_cast<unsigned char>(sql[i + 2]))))
++            { state = State::LineComment; ++i; continue; }
++            if (c == '#') { state = State::LineComment; continue; }
++            if (c == '/' && next == '*') { state = State::BlockComment; ++i; continue; }
++            if (c == ';') { flush(); continue; }
++            if (c == '\'') state = State::SingleQuote;
++            else if (c == '"') state = State::DoubleQuote;
++            else if (c == '`') state = State::Backtick;
++            current.push_back(c);
++            continue;
++        }
++
++        current.push_back(c);
++        char const delimiter = state == State::SingleQuote ? '\'' :
++            (state == State::DoubleQuote ? '"' : '`');
++        if (c == '\\' && next != '\0') { current.push_back(next); ++i; }
++        else if (c == delimiter)
++        {
++            if (next == delimiter) { current.push_back(next); ++i; }
++            else state = State::Normal;
++        }
++    }
++    flush();
++    return statements;
++}
++
++} // namespace MigrationDetail
++
+ namespace {
+
+ std::string LoadFile(std::string const& path)
+@@ -55,6 +121,14 @@ std::unordered_set<uint32> PlayerbotMigrationMgr::applied_versions() const
+     return out;
+ }
+
++bool PlayerbotMigrationMgr::version_applied(uint32 version) const
++{
++    auto result = Db().Query(
++        ("SELECT 1 FROM playerbot_v2_schema_version WHERE version = " +
++         std::to_string(version) + " LIMIT 1").c_str());
++    return bool(result);
++}
++
+ bool PlayerbotMigrationMgr::apply_one(uint32 version, std::string const& sql_path)
+ {
+     const std::string sql = LoadFile(sql_path);
+@@ -64,49 +138,10 @@ bool PlayerbotMigrationMgr::apply_one(uint32 version, std::string const& sql_pat
+         return false;
+     }
+
+-    // The .sql files contain multiple statements separated by ';'.
+-    //
+-    // Pass 1 — strip whole-line `--` comments. We do this BEFORE the
+-    // semicolon split because comment text legitimately contains
+-    // semicolons ("survives logout / group disband; adds squad-...")
+-    // and the previous parser fed those mid-comment fragments to MySQL
+-    // as syntactically broken statements. The convention in our
+-    // migration files (and TrinityCore's) is that `--` always begins
+-    // at column 0 (or after pure whitespace) — we only strip lines
+-    // matching that, so legitimate inline `--` inside a quoted string
+-    // is preserved.
+-    std::string cleaned;
+-    cleaned.reserve(sql.size());
+-    {
+-        std::stringstream ss_lines(sql);
+-        std::string line;
+-        while (std::getline(ss_lines, line))
+-        {
+-            size_t i = 0;
+-            while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) ++i;
+-            if (i + 1 < line.size() && line[i] == '-' && line[i + 1] == '-')
+-                continue;   // comment-only line — drop entirely
+-            cleaned += line;
+-            cleaned.push_back('\n');
+-        }
+-    }
+-
+-    // Pass 2 — split on ';' and execute each statement. (TrinityCore's
+-    // DirectExecute is single-statement.)
+-    std::stringstream ss(cleaned);
+-    std::string buf;
+-    std::string statement;
+-    while (std::getline(ss, buf, ';'))
+-    {
+-        statement = buf;
+-        // Trim whitespace.
+-        size_t s = statement.find_first_not_of(" \t\r\n");
+-        size_t e = statement.find_last_not_of(" \t\r\n");
+-        if (s == std::string::npos) continue;
+-        statement = statement.substr(s, e - s + 1);
+-        if (statement.empty()) continue;
++    // DirectExecute accepts one statement. Split without treating quoted or
++    // commented semicolons as boundaries.
++    for (std::string const& statement : MigrationDetail::SplitSqlStatements(sql))
+         Db().DirectExecute(statement.c_str());
+-    }
+     return true;
+ }
+
+@@ -127,15 +162,28 @@ bool PlayerbotMigrationMgr::run_all()
+     // already recorded in playerbot_v2_schema_version. New migrations need only
+     // be dropped into the directory — no code change.
+     //
+-    // The directory is resolved against the source tree (baked at build time
+-    // from CMAKE_SOURCE_DIR, overridable via the `SourceDirectory` config key).
+-    // worldserver runs from a deploy dir distinct from the source checkout, so
+-    // a CWD-relative path can't find the .sql files.
++    // Prefer the source tree (baked at build time and overridable via
++    // SourceDirectory); installed builds fall back to their deployed bundle.
+     std::string const sourceDir = BuiltInConfig::GetSourceDirectory();
+-    std::filesystem::path const migDir =
++    std::filesystem::path migDir =
+         std::filesystem::path(sourceDir) / "sql" / "playerbot_v2";
+-
++    std::filesystem::path auxDir =
++        std::filesystem::path(sourceDir) / "src" / "modules" / "PlayerbotV2" / "sql" / "shared";
+     std::error_code ec;
++
++    // Installed servers commonly run without their source checkout. CMake
++    // deploys the migration bundle beside worldserver.conf, so fall back to
++    // that self-contained location when the baked source path is unavailable.
++    if (!std::filesystem::is_directory(migDir, ec))
++    {
++        std::filesystem::path const deployedRoot =
++            std::filesystem::path(sConfigMgr->GetFilename()).parent_path() /
++            "sql" / "playerbot_v2";
++        migDir = deployedRoot;
++        auxDir = deployedRoot / "auxiliary";
++    }
++
++    ec.clear();
+     if (!std::filesystem::is_directory(migDir, ec))
+     {
+         TC_LOG_ERROR("playerbot.v2",
+@@ -167,6 +215,47 @@ bool PlayerbotMigrationMgr::run_all()
+         if (!apply_one(version, fullPath))
+             return false;
+         // The migration file itself records the row in playerbot_v2_schema_version.
++        if (!version_applied(version))
++        {
++            TC_LOG_ERROR("playerbot.v2",
++                "[PlayerbotV2] Migration {} did not record its schema version; refusing module startup", version);
++            return false;
++        }
++    }
++
++    // Route and navigation data originally lived in a separately configured
++    // shared schema, while the migration runner and most V2 queries use
++    // CharacterDatabase. Apply those files to CharacterDatabase as auxiliary
++    // migrations as well, using a disjoint version range so they remain
++    // append-only and are not replayed on every boot.
++    std::vector<std::pair<uint32, std::filesystem::path>> const auxiliary = {
++        {10001, auxDir / "0001_dungeon_route_waypoints.sql"},
++        {10003, auxDir / "0003_nav_links.sql"},
++        {10004, auxDir / "0004_dungeon_route_waypoints_data.sql"},
++        {10005, auxDir / "0005_nav_links_data.sql"}
++    };
++    for (auto const& [version, path] : auxiliary)
++    {
++        if (applied.contains(version)) continue;
++        if (!std::filesystem::is_regular_file(path, ec))
++        {
++            TC_LOG_ERROR("playerbot.v2", "[PlayerbotV2] Auxiliary migration not found: {}", path.string());
++            return false;
++        }
++        TC_LOG_INFO("playerbot.v2", "[PlayerbotV2] Applying auxiliary migration {} from {}",
++            version, path.string());
++        if (!apply_one(version, path.string()))
++            return false;
++        Db().DirectExecute(
++            ("INSERT INTO playerbot_v2_schema_version (version, sha256) VALUES (" +
++             std::to_string(version) +
++             ", 'auxiliary-playerbot-v2-migration') ON DUPLICATE KEY UPDATE applied_at=CURRENT_TIMESTAMP").c_str());
++        if (!version_applied(version))
++        {
++            TC_LOG_ERROR("playerbot.v2",
++                "[PlayerbotV2] Auxiliary migration {} could not be recorded; refusing module startup", version);
++            return false;
++        }
+     }
+     return true;
+ }
+diff --git a/src/modules/PlayerbotV2/Persistence/PlayerbotMigrationMgr.h b/src/modules/PlayerbotV2/Persistence/PlayerbotMigrationMgr.h
+index 6dda89c0..997f7232 100644
+--- a/src/modules/PlayerbotV2/Persistence/PlayerbotMigrationMgr.h
++++ b/src/modules/PlayerbotV2/Persistence/PlayerbotMigrationMgr.h
+@@ -5,10 +5,16 @@
+
+ #include "Bot/BotTypes.h"
+ #include <string>
++#include <string_view>
+ #include <unordered_set>
++#include <vector>
+
+ namespace Playerbot {
+
++namespace MigrationDetail {
++std::vector<std::string> SplitSqlStatements(std::string_view sql);
++}
++
+ class PlayerbotMigrationMgr
+ {
+ public:
+@@ -25,6 +31,7 @@ public:
+
+ private:
+     bool ensure_version_table() const;
++    bool version_applied(uint32 version) const;
+     bool apply_one(uint32 version, std::string const& sql_path);
+ };
+
+diff --git a/src/modules/PlayerbotV2/Services.cpp b/src/modules/PlayerbotV2/Services.cpp
+index 16f2aa1d..0c377bbc 100644
+--- a/src/modules/PlayerbotV2/Services.cpp
++++ b/src/modules/PlayerbotV2/Services.cpp
+@@ -245,6 +245,7 @@ std::unique_ptr<BattlegroundScript> MakeEmpyreanDomainArenaScript();
+ #include "Util/ConfigReader.h"
+ #include "Diagnostics/PerfCounters.h"
+ #include "Config.h"   // sConfigMgr->GetFilename for resolving playerbot.conf next to worldserver.conf
++#include "Log.h"
+ #include <atomic>
+ #include <filesystem>
+ #include <memory>
+@@ -671,6 +672,11 @@ void Shutdown()
+     g_holder->fleet->stop();
+     g_holder->ai_pool->stop();
+
++    // Headless sessions are not owned by sWorld. Remove their players from
++    // maps synchronously while the map system is still alive.
++    uint32 const loggedOut = g_holder->session_mgr->ShutdownAllNow();
++    TC_LOG_INFO("playerbot.v2", "[BotSessionMgr] Shutdown logged out {} headless session(s).", loggedOut);
++
+     delete g_holder;
+     g_holder = nullptr;
+ }
+diff --git a/src/modules/PlayerbotV2/Session/BotSession.cpp b/src/modules/PlayerbotV2/Session/BotSession.cpp
+index e128c1e8..b651e143 100644
+--- a/src/modules/PlayerbotV2/Session/BotSession.cpp
++++ b/src/modules/PlayerbotV2/Session/BotSession.cpp
+@@ -115,4 +115,11 @@ void BotSession::KickPlayer(std::string_view reason)
+     forceExit = true;
+ }
+
++void BotSession::ShutdownNow()
++{
++    forceExit = true;
++    if (_player && !m_playerLogout)
++        LogoutPlayer(true);
++}
++
+ } // namespace Playerbot::V2
+diff --git a/src/modules/PlayerbotV2/Session/BotSession.h b/src/modules/PlayerbotV2/Session/BotSession.h
+index 1440a124..649e5617 100644
+--- a/src/modules/PlayerbotV2/Session/BotSession.h
++++ b/src/modules/PlayerbotV2/Session/BotSession.h
+@@ -45,6 +45,10 @@ public:
+     // (forceExit set) so BotSessionMgr can drop the session from its map.
+     bool Update(uint32 diff, class PacketFilter& updater);
+
++    // World-thread shutdown path. Removes the player from its map and saves it
++    // synchronously before core map teardown begins.
++    void ShutdownNow();
++
+     // KickPlayer override (non-virtual; static-dispatched by mgr). Base
+     // implementation iterates m_Socket and sets forceExit only if it found
+     // an open socket — bots have no socket, so the base is a no-op. We
+diff --git a/src/modules/PlayerbotV2/Session/BotSessionMgr.cpp b/src/modules/PlayerbotV2/Session/BotSessionMgr.cpp
+index 8af9f565..2fa9574d 100644
+--- a/src/modules/PlayerbotV2/Session/BotSessionMgr.cpp
++++ b/src/modules/PlayerbotV2/Session/BotSessionMgr.cpp
+@@ -17,10 +17,8 @@ namespace Playerbot::V2 {
+
+ BotSessionMgr::~BotSessionMgr()
+ {
+-    // Sessions are owned by shared_ptr; clearing the map runs each session's
+-    // destructor which logs out + saves the player. Ordering note: this runs
+-    // at module Shutdown, after the AI worker pool has stopped, so no AI
+-    // worker is still pushing intents into a session being torn down.
++    // Normal shutdown calls ShutdownAllNow on the world thread. This clear is
++    // only a defensive fallback for a partially initialized service holder.
+     std::lock_guard lk(mtx_);
+     sessions_.clear();
+ }
+@@ -130,6 +128,31 @@ uint32 BotSessionMgr::LogoutAll()
+     return kicked;
+ }
+
++uint32 BotSessionMgr::ShutdownAllNow()
++{
++    std::vector<std::shared_ptr<BotSession>> snap;
++    {
++        std::lock_guard lk(mtx_);
++        snap.reserve(sessions_.size());
++        for (auto const& [_, sess] : sessions_)
++            snap.push_back(sess);
++    }
++
++    uint32 loggedOut = 0;
++    for (auto const& sess : snap)
++    {
++        if (!sess) continue;
++        sess->ShutdownNow();
++        ++loggedOut;
++    }
++
++    {
++        std::lock_guard lk(mtx_);
++        sessions_.clear();
++    }
++    return loggedOut;
++}
++
+ void BotSessionMgr::Update(uint32 diff)
+ {
+     // Snapshot active sessions under lock; tick + remove dead ones outside
+diff --git a/src/modules/PlayerbotV2/Session/BotSessionMgr.h b/src/modules/PlayerbotV2/Session/BotSessionMgr.h
+index f4782878..115cdaea 100644
+--- a/src/modules/PlayerbotV2/Session/BotSessionMgr.h
++++ b/src/modules/PlayerbotV2/Session/BotSessionMgr.h
+@@ -51,6 +51,10 @@ public:
+     // Batch logout: kick every active V2 bot session. Returns count kicked.
+     uint32 LogoutAll();
+
++    // Synchronously log out and release every headless session. Called on the
++    // world thread before TrinityCore begins destroying maps.
++    uint32 ShutdownAllNow();
++
+     // Per-tick driver. Iterates sessions and calls WorldSession::Update so
+     // the async login callbacks (and any other deferred work) fire.
+     void Update(uint32 diff);
+diff --git a/src/modules/PlayerbotV2/World/WorldMetadata.cpp b/src/modules/PlayerbotV2/World/WorldMetadata.cpp
+index db81d280..075b91d6 100644
+--- a/src/modules/PlayerbotV2/World/WorldMetadata.cpp
++++ b/src/modules/PlayerbotV2/World/WorldMetadata.cpp
+@@ -1,6 +1,5 @@
+ #include "WorldMetadata.h"
+
+-#include "Config.h"
+ #include "DatabaseEnv.h"
+ #include "Log.h"
+
+@@ -11,19 +10,6 @@
+ namespace Playerbot::V2::World
+ {
+
+-namespace
+-{
+-// Config-driven shared playerbot DB (Playerbot.SharedDatabase, default
+-// wowc_playerbot). World metadata is instance-shared curated data, so it lives
+-// in the shared schema — NOT the swappable characters DB. Read once.
+-std::string const& SharedDb()
+-{
+-    static std::string const db =
+-        sConfigMgr->GetStringDefault("Playerbot.SharedDatabase", "playerbot");
+-    return db;
+-}
+-} // anonymous
+-
+ // ---- enum mapping ----------------------------------------------------------
+
+ char const* KindToString(WorldMetadataKind k)
+@@ -120,10 +106,10 @@ WorldMetadataStore& WorldMetadataStore::Instance()
+
+ int64 WorldMetadataStore::ReloadFromDb()
+ {
+-    QueryResult res = CharacterDatabase.Query(fmt::format(
++    QueryResult res = CharacterDatabase.Query(
+         "SELECT id, map_id, zone_id, kind, pos_x, pos_y, pos_z, radius, "
+         "       label, notes, created_by "
+-        "  FROM {}.playerbot_v2_world_metadata", SharedDb()).c_str());
++        "  FROM playerbot_v2_world_metadata");
+     if (!res)
+     {
+         // Empty result is a legitimate "no rows" — distinguishable from a
+@@ -167,8 +153,7 @@ int64 WorldMetadataStore::ReloadFromDb()
+         loaded_at_ = std::chrono::system_clock::now();
+     }
+     TC_LOG_INFO("playerbot.v2",
+-        "[WorldMetadata] loaded {} record(s) from {}.playerbot_v2_world_metadata",
+-        n, SharedDb());
++        "[WorldMetadata] loaded {} record(s) from playerbot_v2_world_metadata", n);
+     return n;
+ }
+
+@@ -192,18 +177,18 @@ bool WorldMetadataStore::Insert(WorldMetadataRecord& r)
+     CharacterDatabase.EscapeString(enotes);
+     CharacterDatabase.EscapeString(ecreated);
+     CharacterDatabase.DirectExecute(fmt::format(
+-        "INSERT INTO {}.playerbot_v2_world_metadata "
++        "INSERT INTO playerbot_v2_world_metadata "
+         "(map_id, zone_id, kind, pos_x, pos_y, pos_z, radius, "
+         " label, notes, created_by) "
+         "VALUES ({}, {}, {}, {}, {}, {}, {}, '{}', '{}', '{}')",
+-        SharedDb(), r.map_id, r.zone_id, uint32(r.kind),
++        r.map_id, r.zone_id, uint32(r.kind),
+         r.x, r.y, r.z, r.radius,
+         elabel, enotes, ecreated).c_str());
+     QueryResult res = CharacterDatabase.Query(fmt::format(
+-        "SELECT id FROM {}.playerbot_v2_world_metadata "
++        "SELECT id FROM playerbot_v2_world_metadata "
+         "WHERE map_id={} AND kind={} AND pos_x={} AND pos_y={} "
+         "ORDER BY id DESC LIMIT 1",
+-        SharedDb(), r.map_id, uint32(r.kind), r.x, r.y).c_str());
++        r.map_id, uint32(r.kind), r.x, r.y).c_str());
+     if (!res)
+     {
+         TC_LOG_ERROR("playerbot.v2",
+@@ -224,7 +209,7 @@ bool WorldMetadataStore::Delete(uint64 id)
+ {
+     if (id == 0) return false;
+     CharacterDatabase.DirectExecute(fmt::format(
+-        "DELETE FROM {}.playerbot_v2_world_metadata WHERE id={}", SharedDb(), id).c_str());
++        "DELETE FROM playerbot_v2_world_metadata WHERE id={}", id).c_str());
+     std::unique_lock lk(mtx_);
+     return by_id_.erase(id) != 0;
+ }
+@@ -233,8 +218,8 @@ bool WorldMetadataStore::UpdateRadius(uint64 id, float new_radius)
+ {
+     if (id == 0 || new_radius <= 0.0f) return false;
+     CharacterDatabase.DirectExecute(fmt::format(
+-        "UPDATE {}.playerbot_v2_world_metadata SET radius={} WHERE id={}",
+-        SharedDb(), new_radius, id).c_str());
++        "UPDATE playerbot_v2_world_metadata SET radius={} WHERE id={}",
++        new_radius, id).c_str());
+     std::unique_lock lk(mtx_);
+     auto it = by_id_.find(id);
+     if (it == by_id_.end()) return false;
+@@ -248,8 +233,8 @@ bool WorldMetadataStore::UpdateLabel(uint64 id, std::string const& label)
+     std::string e = label;
+     CharacterDatabase.EscapeString(e);
+     CharacterDatabase.DirectExecute(fmt::format(
+-        "UPDATE {}.playerbot_v2_world_metadata SET label='{}' WHERE id={}",
+-        SharedDb(), e, id).c_str());
++        "UPDATE playerbot_v2_world_metadata SET label='{}' WHERE id={}",
++        e, id).c_str());
+     std::unique_lock lk(mtx_);
+     auto it = by_id_.find(id);
+     if (it == by_id_.end()) return false;
+@@ -263,8 +248,8 @@ bool WorldMetadataStore::UpdateNotes(uint64 id, std::string const& notes)
+     std::string e = notes;
+     CharacterDatabase.EscapeString(e);
+     CharacterDatabase.DirectExecute(fmt::format(
+-        "UPDATE {}.playerbot_v2_world_metadata SET notes='{}' WHERE id={}",
+-        SharedDb(), e, id).c_str());
++        "UPDATE playerbot_v2_world_metadata SET notes='{}' WHERE id={}",
++        e, id).c_str());
+     std::unique_lock lk(mtx_);
+     auto it = by_id_.find(id);
+     if (it == by_id_.end()) return false;
+diff --git a/src/modules/PlayerbotV2/conf/playerbot.conf.dist b/src/modules/PlayerbotV2/conf/playerbot.conf.dist
+index 477dde16..272b02a2 100644
+--- a/src/modules/PlayerbotV2/conf/playerbot.conf.dist
++++ b/src/modules/PlayerbotV2/conf/playerbot.conf.dist
+@@ -14,17 +14,6 @@
+ # list, silently dropping every value. The section name itself is not used.
+ [playerbot]
+
+-#-----------------------------------------------------------------------------
+-# Database
+-#-----------------------------------------------------------------------------
+-
+-# Name of the shared playerbot database schema. The module stores all of its
+-# bot metadata (names pool, personalities, population targets, talent builds,
+-# guild metadata, etc.) here, separate from TrinityCore's character database.
+-# Create this schema and apply the SQL under sql/playerbot_v2/ before first
+-# boot (see the module README / INSTALL.md). Must match the schema you created.
+-Playerbot.SharedDatabase = "playerbot"
+-
+ #-----------------------------------------------------------------------------
+ # Core / threading
+ #-----------------------------------------------------------------------------
+diff --git a/src/modules/PlayerbotV2/sql/shared/0001_dungeon_route_waypoints.sql b/src/modules/PlayerbotV2/sql/shared/0001_dungeon_route_waypoints.sql
+index 4367103e..6957ec44 100644
+--- a/src/modules/PlayerbotV2/sql/shared/0001_dungeon_route_waypoints.sql
++++ b/src/modules/PlayerbotV2/sql/shared/0001_dungeon_route_waypoints.sql
+@@ -1,7 +1,6 @@
+ -- ===========================================================================
+ -- PlayerbotV2: dungeon route_waypoints table (cross-dungeon far-boss routing)
+--- Target: the SHARED playerbot database (Playerbot.SharedDatabase, default
+---         "playerbot"; e.g. "wowc_playerbot"). Apply this file while connected
++-- Target: TrinityCore's configured characters database. Apply this file while connected
+ --         to that schema -- it is NOT part of TrinityCore's world/char/login
+ --         updater (same as handcrafted_road / playerbots_names). Date: 2026-07-02
+ -- ===========================================================================
+diff --git a/src/modules/PlayerbotV2/sql/shared/0003_nav_links.sql b/src/modules/PlayerbotV2/sql/shared/0003_nav_links.sql
+index 2e337b6e..06b0db2a 100644
+--- a/src/modules/PlayerbotV2/sql/shared/0003_nav_links.sql
++++ b/src/modules/PlayerbotV2/sql/shared/0003_nav_links.sql
+@@ -1,7 +1,7 @@
+ -- ===========================================================================
+ -- PlayerbotV2: DB-authored traversal links (playerbot_nav_links)
+--- Target: the SHARED playerbot database (Playerbot.SharedDatabase, e.g.
+---         "wowc_playerbot") — NOT part of TC's world/char/login updater.
++-- Target: TrinityCore's configured characters database. This is applied by
++--         PlayerbotMigrationMgr, not TC's standard database updater.
+ --         Date: 2026-07-03
+ -- ===========================================================================
+ --
+diff --git a/src/modules/PlayerbotV2/sql/shared/0004_dungeon_route_waypoints_data.sql b/src/modules/PlayerbotV2/sql/shared/0004_dungeon_route_waypoints_data.sql
+index fb211595..28ce7d54 100644
+--- a/src/modules/PlayerbotV2/sql/shared/0004_dungeon_route_waypoints_data.sql
++++ b/src/modules/PlayerbotV2/sql/shared/0004_dungeon_route_waypoints_data.sql
+@@ -1,7 +1,7 @@
+ -- ===========================================================================
+ -- PlayerbotV2: dungeon route_waypoints DATA (populates playerbot_dungeon_routes)
+--- Target: the SHARED playerbot database (Playerbot.SharedDatabase, e.g.
+---         "wowc_playerbot"). Apply AFTER shared/0001 (table schema). NOT part of
++-- Target: TrinityCore's configured characters database. Apply AFTER shared/0001
++--         (table schema). This is not part of
+ --         TrinityCore's world/char/login updater. Date: 2026-07-22
+ -- ===========================================================================
+ --
+diff --git a/src/modules/PlayerbotV2/sql/shared/0005_nav_links_data.sql b/src/modules/PlayerbotV2/sql/shared/0005_nav_links_data.sql
+index 09074bd8..cb1e9400 100644
+--- a/src/modules/PlayerbotV2/sql/shared/0005_nav_links_data.sql
++++ b/src/modules/PlayerbotV2/sql/shared/0005_nav_links_data.sql
+@@ -1,7 +1,7 @@
+ -- ===========================================================================
+ -- PlayerbotV2: additional verified traversal links (playerbot_nav_links DATA)
+--- Target: the SHARED playerbot database (Playerbot.SharedDatabase, e.g.
+---         "wowc_playerbot"). Apply AFTER shared/0003 (table + first link).
++-- Target: TrinityCore's configured characters database. Apply AFTER
++--         shared/0003 (table + first link).
+ --         NOT part of TC's world/char/login updater. Date: 2026-07-22
+ -- ===========================================================================
+ --
+diff --git a/src/modules/PlayerbotV2/sql/world/0005_dungeon_route_waypoints.sql b/src/modules/PlayerbotV2/sql/world/0005_dungeon_route_waypoints.sql
+index a8ad6dcf..ff968734 100644
+--- a/src/modules/PlayerbotV2/sql/world/0005_dungeon_route_waypoints.sql
++++ b/src/modules/PlayerbotV2/sql/world/0005_dungeon_route_waypoints.sql
+@@ -1,8 +1,8 @@
+ -- ===========================================================================
+ -- DEPRECATED / MOVED (2026-07-02)
+ -- ===========================================================================
+--- The dungeon route_waypoints table has MOVED to the shared playerbot database
+--- (Playerbot.SharedDatabase) because these waypoints are static, map-derived nav
++-- The dungeon route_waypoints table has MOVED to the characters database
++-- because these waypoints are Playerbot-owned, map-derived nav
+ -- data identical across every realm -- the same rationale as handcrafted_road.
+ -- See: sql/shared/0001_dungeon_route_waypoints.sql (the authoritative schema),
+ -- read at runtime by DungeonScriptMgr::LoadGeneratedRoutes via CharacterDatabase
+@@ -23,4 +23,4 @@ CREATE TABLE IF NOT EXISTS `playerbot_dungeon_routes` (
+   PRIMARY KEY (`map_id`, `difficulty`, `seq`),
+   KEY `map_idx` (`map_id`)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+-  COMMENT='DEPRECATED: moved to the shared playerbot DB (see sql/shared/0001_dungeon_route_waypoints.sql)';
++  COMMENT='DEPRECATED: moved to CharacterDatabase (see sql/shared/0001_dungeon_route_waypoints.sql)';
+diff --git a/src/modules/PlayerbotV2/tools/gen_dungeon_routes.py b/src/modules/PlayerbotV2/tools/gen_dungeon_routes.py
+index 2fdb653b..118c2460 100644
+--- a/src/modules/PlayerbotV2/tools/gen_dungeon_routes.py
++++ b/src/modules/PlayerbotV2/tools/gen_dungeon_routes.py
+@@ -35,7 +35,7 @@ Usage:
+     gen_dungeon_routes.py --report [--dump] [mapid ...]   # NO DB writes
+     gen_dungeon_routes.py [--all|--dump] [mapid ...]       # writes routes (as v1)
+
+-Env: GEN_STEP (waypoint spacing, default 200), ROUTE_DB (default wowc_playerbot).
++Env: GEN_STEP (waypoint spacing, default 200), ROUTE_DB (default characters).
+ Offline: zero world-thread pathfinding risk.
+ """
+ import subprocess, re, sys, math, os, statistics
+@@ -43,7 +43,7 @@ import subprocess, re, sys, math, os, statistics
+ MMAP_DIR = "M:/WorldofWarcraft/mmaps"
+ PROBE    = "M:/PlayerbotServer/mmap_probe.exe"
+ MYSQL    = r"C:/Program Files/MySQL/MySQL Server 9.4/bin/mysql.exe"
+-ROUTE_DB = os.environ.get("ROUTE_DB", "wowc_playerbot")
++ROUTE_DB = os.environ.get("ROUTE_DB", "characters")
+ WORLD_DB = "wc_world"
+ STEP     = float(os.environ.get("GEN_STEP", "25"))    # resample spacing (yds)
+ MAX_GAP  = float(os.environ.get("GEN_MAX_GAP", "40"))  # hard cap between consecutive crumbs (yds)
+diff --git a/src/server/bnetserver/CMakeLists.txt b/src/server/bnetserver/CMakeLists.txt
+index 1eaa80a3..7ad2832b 100644
+--- a/src/server/bnetserver/CMakeLists.txt
++++ b/src/server/bnetserver/CMakeLists.txt
+@@ -63,15 +63,15 @@ if (UNIX)
+   endif()
+   install(FILES bnetserver.cert.pem bnetserver.key.pem DESTINATION bin)
+ elseif (WIN32)
+-  install(TARGETS bnetserver DESTINATION "${CMAKE_INSTALL_PREFIX}")
++  install(TARGETS bnetserver DESTINATION ".")
+   if (COPY_CONF)
+     add_custom_command(TARGET bnetserver
+       POST_BUILD
+       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/bnetserver.conf.dist ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/bnetserver.conf.dist
+     )
+-    install(FILES bnetserver.conf.dist DESTINATION "${CMAKE_INSTALL_PREFIX}")
++    install(FILES bnetserver.conf.dist DESTINATION ".")
+   endif()
+-  install(FILES bnetserver.cert.pem bnetserver.key.pem DESTINATION "${CMAKE_INSTALL_PREFIX}")
++  install(FILES bnetserver.cert.pem bnetserver.key.pem DESTINATION ".")
+ endif()
+
+ # Generate precompiled header
+diff --git a/src/server/game/Globals/ObjectMgr.cpp b/src/server/game/Globals/ObjectMgr.cpp
+index fc053f0a..ebd0762d 100644
+--- a/src/server/game/Globals/ObjectMgr.cpp
++++ b/src/server/game/Globals/ObjectMgr.cpp
+@@ -6842,7 +6842,13 @@ WorldSafeLocsEntry const* ObjectMgr::GetClosestGraveyard(WorldLocation const& lo
+     }
+
+     WorldSafeLocsEntry const* graveyard = GetClosestGraveyardInZone(location, team, conditionObject, zoneId);
+-    AreaTableEntry const* zoneEntry = sAreaTableStore.AssertEntry(zoneId);
++    AreaTableEntry const* zoneEntry = sAreaTableStore.LookupEntry(zoneId);
++    if (!zoneEntry)
++    {
++        TC_LOG_ERROR("misc", "AreaTable entry {} not found while selecting a graveyard for map {} coords ({}, {}, {}), object name: {} {}",
++            zoneId, MapId, x, y, z, conditionObject ? std::string_view(conditionObject->GetName()) : "", Object::GetGUID(conditionObject));
++        return GetDefaultGraveyard(team);
++    }
+     AreaTableEntry const* parentEntry = sAreaTableStore.LookupEntry(zoneEntry->ParentAreaID);
+
+     while (!graveyard && parentEntry)
+diff --git a/src/server/game/Maps/HandcraftedRoadStorage.cpp b/src/server/game/Maps/HandcraftedRoadStorage.cpp
+index 9cd45e65..d3e1bb18 100644
+--- a/src/server/game/Maps/HandcraftedRoadStorage.cpp
++++ b/src/server/game/Maps/HandcraftedRoadStorage.cpp
+@@ -8,7 +8,6 @@
+ #include "Config.h"
+ #include "DatabaseEnv.h"
+ #include "Log.h"
+-#include "StringFormat.h"
+ #include "Timer.h"
+
+ #include <algorithm>
+@@ -26,16 +25,23 @@ void HandcraftedRoadStorage::LoadFromDB()
+     // than its last-built generation and rebuilds again on the next request.
+     _generation.fetch_add(1, std::memory_order_acq_rel);
+
+-    // Shared playerbot DB (Playerbot.SharedDatabase, default wowc_playerbot) so
+-    // road data is authored once and reused across every world-DB variant — it
+-    // does NOT live in the swappable world DB. Cross-DB qualified read on the
+-    // WorldDatabase connection (the configured user has access to all schemas).
++    // Playerbot-owned runtime data lives in CharacterDatabase, matching the V2
++    // migration runner and avoiding a separate cross-schema privilege contract.
+     // SELECT order matches the column ordinals used below; keep them in lock-step.
+-    std::string const sharedDb = sConfigMgr->GetStringDefault("Playerbot.SharedDatabase", "playerbot");
+-    QueryResult result = WorldDatabase.Query(Trinity::StringFormat(
++    QueryResult tableExists = CharacterDatabase.Query(
++        "SELECT 1 FROM information_schema.tables "
++        "WHERE table_schema = DATABASE() AND table_name = 'handcrafted_road' LIMIT 1");
++    if (!tableExists)
++    {
++        TC_LOG_INFO("server.loading",
++            ">> Loaded 0 handcrafted road segments. Table will be created by Playerbot migrations later in startup.");
++        return;
++    }
++
++    QueryResult result = CharacterDatabase.Query(
+         "SELECT id, mapId, fromX, fromY, toX, toY, width, "
+         "COALESCE(comment, ''), verified "
+-        "FROM {}.handcrafted_road ORDER BY mapId, id", sharedDb).c_str());
++        "FROM handcrafted_road ORDER BY mapId, id");
+
+     if (!result)
+     {
+diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
+index 25e4a74d..fac11a8f 100644
+--- a/src/server/game/Maps/Map.cpp
++++ b/src/server/game/Maps/Map.cpp
+@@ -1657,13 +1657,11 @@ void Map::UnloadAll()
+     _creaturesToMove.clear();
+     _gameObjectsToMove.clear();
+
+-    for (GridRefManager<NGridType>::iterator i = GridRefManager<NGridType>::begin(); i != GridRefManager<NGridType>::end();)
+-    {
+-        NGridType &grid(*i->GetSource());
+-        ++i;
+-        UnloadGrid(grid, true);       // deletes the grid and removes it from the GridRefManager
+-    }
+-
++    // Transports are active world objects and RemoveFromMap may consult their
++    // current cell. Remove them while the map grids still exist; doing this
++    // after UnloadGrid can recreate/lookup a cell in a map that is already
++    // being torn down (observed as EnsureGridLoaded's null-grid assertion on
++    // Broken Isles during Playerbot shutdown).
+     for (TransportsContainer::iterator itr = _transports.begin(); itr != _transports.end();)
+     {
+         Transport* transport = *itr;
+@@ -1672,6 +1670,13 @@ void Map::UnloadAll()
+         RemoveFromMap<Transport>(transport, true);
+     }
+
++    for (GridRefManager<NGridType>::iterator i = GridRefManager<NGridType>::begin(); i != GridRefManager<NGridType>::end();)
++    {
++        NGridType &grid(*i->GetSource());
++        ++i;
++        UnloadGrid(grid, true);       // deletes the grid and removes it from the GridRefManager
++    }
++
+     for (auto& cellCorpsePair : _corpsesByCell)
+     {
+         for (Corpse* corpse : cellCorpsePair.second)
+diff --git a/src/server/scripts/CMakeLists.txt b/src/server/scripts/CMakeLists.txt
+index d5b2f96a..1e97dbf4 100644
+--- a/src/server/scripts/CMakeLists.txt
++++ b/src/server/scripts/CMakeLists.txt
+@@ -236,7 +236,8 @@ endif()
+ # are contained in the static library already.
+ if(DISABLED_SCRIPT_MODULE_PROJECTS)
+   install(CODE "
+-    foreach(SCRIPT_TO_UNINSTALL ${DISABLED_SCRIPT_MODULE_PROJECTS})
++    set(SCRIPTS_TO_UNINSTALL [[${DISABLED_SCRIPT_MODULE_PROJECTS}]])
++    foreach(SCRIPT_TO_UNINSTALL IN LISTS SCRIPTS_TO_UNINSTALL)
+       if(EXISTS \"\${SCRIPT_TO_UNINSTALL}\")
+         message(STATUS \"Uninstalling: \${SCRIPT_TO_UNINSTALL}\")
+         file(REMOVE \"\${SCRIPT_TO_UNINSTALL}\")
+diff --git a/src/server/worldserver/CMakeLists.txt b/src/server/worldserver/CMakeLists.txt
+index f690b040..29e320fb 100644
+--- a/src/server/worldserver/CMakeLists.txt
++++ b/src/server/worldserver/CMakeLists.txt
+@@ -69,6 +69,8 @@ if(WORLDSERVER_DYNAMIC_SCRIPT_MODULES_DEPENDENCIES)
+ endif()
+
+ set(PLAYERBOT_V2_CONF_DIST ${CMAKE_SOURCE_DIR}/src/modules/PlayerbotV2/conf/playerbot.conf.dist)
++set(PLAYERBOT_V2_MIGRATIONS ${CMAKE_SOURCE_DIR}/sql/playerbot_v2)
++set(PLAYERBOT_V2_AUX_MIGRATIONS ${CMAKE_SOURCE_DIR}/src/modules/PlayerbotV2/sql/shared)
+
+ if(UNIX)
+   install(TARGETS worldserver DESTINATION bin)
+@@ -82,24 +84,32 @@ if(UNIX)
+       add_custom_command(TARGET worldserver
+         POST_BUILD
+         COMMAND ${CMAKE_COMMAND} -E copy ${PLAYERBOT_V2_CONF_DIST} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/../etc/playerbot.conf.dist
++        COMMAND ${CMAKE_COMMAND} -E copy_directory ${PLAYERBOT_V2_MIGRATIONS} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/../etc/sql/playerbot_v2
++        COMMAND ${CMAKE_COMMAND} -E copy_directory ${PLAYERBOT_V2_AUX_MIGRATIONS} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/../etc/sql/playerbot_v2/auxiliary
+       )
+       install(FILES ${PLAYERBOT_V2_CONF_DIST} DESTINATION ${CONF_DIR})
++      install(DIRECTORY ${PLAYERBOT_V2_MIGRATIONS}/ DESTINATION ${CONF_DIR}/sql/playerbot_v2)
++      install(DIRECTORY ${PLAYERBOT_V2_AUX_MIGRATIONS}/ DESTINATION ${CONF_DIR}/sql/playerbot_v2/auxiliary)
+     endif()
+   endif()
+ elseif(WIN32)
+-  install(TARGETS worldserver DESTINATION "${CMAKE_INSTALL_PREFIX}")
++  install(TARGETS worldserver DESTINATION ".")
+   if(COPY_CONF)
+     add_custom_command(TARGET worldserver
+       POST_BUILD
+       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/worldserver.conf.dist ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
+     )
+-    install(FILES worldserver.conf.dist DESTINATION "${CMAKE_INSTALL_PREFIX}")
++    install(FILES worldserver.conf.dist DESTINATION ".")
+     if(BUILD_PLAYERBOT_V2)
+       add_custom_command(TARGET worldserver
+         POST_BUILD
+         COMMAND ${CMAKE_COMMAND} -E copy ${PLAYERBOT_V2_CONF_DIST} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
++        COMMAND ${CMAKE_COMMAND} -E copy_directory ${PLAYERBOT_V2_MIGRATIONS} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/sql/playerbot_v2
++        COMMAND ${CMAKE_COMMAND} -E copy_directory ${PLAYERBOT_V2_AUX_MIGRATIONS} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/sql/playerbot_v2/auxiliary
+       )
+-      install(FILES ${PLAYERBOT_V2_CONF_DIST} DESTINATION "${CMAKE_INSTALL_PREFIX}")
++      install(FILES ${PLAYERBOT_V2_CONF_DIST} DESTINATION ".")
++      install(DIRECTORY ${PLAYERBOT_V2_MIGRATIONS}/ DESTINATION "sql/playerbot_v2")
++      install(DIRECTORY ${PLAYERBOT_V2_AUX_MIGRATIONS}/ DESTINATION "sql/playerbot_v2/auxiliary")
+     endif()
+   endif()
+ endif()
+diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
+index 40aa0292..4e6a2ded 100644
+--- a/src/server/worldserver/worldserver.conf.dist
++++ b/src/server/worldserver/worldserver.conf.dist
+@@ -482,24 +482,6 @@ Pathfinding.RoadCostMounted = 0.35
+
+ Pathfinding.SlopeCoefficient = 1.0
+
+-###################################################################################################
+-# Shared playerbot database
+-#
+-#    Playerbot.SharedDatabase
+-#        Description: Schema name of the single database that holds ALL instance-
+-#                     shared playerbot data — curated names, templates, activity
+-#                     patterns, talent loadouts, chat, world-metadata, and the
+-#                     handcrafted road network. Authored ONCE and reused across
+-#                     every world-DB variant, so swapping the active world/
+-#                     character DB never strands the shared bot data. Queries are
+-#                     cross-DB qualified (<schema>.table) on the existing
+-#                     connections; the configured DB user must have access to it.
+-#                     SET THIS to your own schema name — it is NOT one of the
+-#                     World/Character DBs and is shared across all of them.
+-#        Default:     playerbot
+-###################################################################################################
+-Playerbot.SharedDatabase = playerbot
+-
+ ###################################################################################################
+ # Handcrafted road segments
+ #
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index b4b5a9ce..561af3aa 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -16,15 +16,40 @@ CollectAndAddSourceFiles(
+   tests
+   ${CMAKE_CURRENT_SOURCE_DIR}
+   EXCLUDE
+-  ${CMAKE_CURRENT_SOURCE_DIR}/tools)
++  ${CMAKE_CURRENT_SOURCE_DIR}/tools
++  # Retired Playerbot V1 prototypes. Their production headers were removed
++  # by the V2 rewrite, so collecting them makes BUILD_TESTING unusable.
++  ${CMAKE_CURRENT_SOURCE_DIR}/Phase3
++  ${CMAKE_CURRENT_SOURCE_DIR}/Phase5
++  ${CMAKE_CURRENT_SOURCE_DIR}/game)
++
++# Keep the current core game tests while omitting the two retired V1 movement
++# prototypes in this directory. CollectAndAddSourceFiles excludes directories,
++# not individual files.
++target_sources(tests PRIVATE
++  ${CMAKE_CURRENT_SOURCE_DIR}/game/ChatCommand.cpp
++  ${CMAKE_CURRENT_SOURCE_DIR}/game/Hyperlinks.cpp
++  ${CMAKE_CURRENT_SOURCE_DIR}/game/PlayerbotMigrationParser.cpp
++  ${CMAKE_CURRENT_SOURCE_DIR}/game/ThreatListIterator.cpp)
+
+ target_link_libraries(tests
+   PRIVATE
+     trinity-core-interface
+     game
+-    extractor_common
+     Catch2::Catch2)
+
++# extractor_common is only created when TOOLS is enabled. The core test
++# executable does not require it, but retain the link when that target exists.
++if(TARGET extractor_common)
++  target_link_libraries(tests PRIVATE extractor_common)
++endif()
++
++# game contains the V2 hook bridge when Playerbot V2 is enabled. Link the
++# implementation so the test executable resolves those hook entry points.
++if(TARGET playerbot-v2)
++  target_link_libraries(tests PRIVATE playerbot-v2)
++endif()
++
+ target_include_directories(tests
+   PRIVATE
+     ${CMAKE_CURRENT_BINARY_DIR}
+diff --git a/tests/game/PlayerbotMigrationParser.cpp b/tests/game/PlayerbotMigrationParser.cpp
+new file mode 100644
+index 00000000..794b18db
+--- /dev/null
++++ b/tests/game/PlayerbotMigrationParser.cpp
+@@ -0,0 +1,34 @@
++#include "tc_catch2.h"
++#include "Persistence/PlayerbotMigrationMgr.h"
++
++using Playerbot::MigrationDetail::SplitSqlStatements;
++
++TEST_CASE("Playerbot migration SQL parser", "[playerbot][migration]")
++{
++    SECTION("splits and trims ordinary statements")
++    {
++        auto const result = SplitSqlStatements("  SELECT 1;\n INSERT INTO t VALUES (2); ");
++        REQUIRE(result == std::vector<std::string>{"SELECT 1", "INSERT INTO t VALUES (2)"});
++    }
++    SECTION("protects quoted semicolons and comment markers")
++    {
++        auto const result = SplitSqlStatements(
++            "INSERT INTO t VALUES ('a;b', \"c;--d\", `semi;colon`); SELECT 2;");
++        REQUIRE(result.size() == 2);
++        REQUIRE(result[0] == "INSERT INTO t VALUES ('a;b', \"c;--d\", `semi;colon`)");
++        REQUIRE(result[1] == "SELECT 2");
++    }
++    SECTION("removes MySQL comments")
++    {
++        auto const result = SplitSqlStatements(
++            "-- heading; ignored\nSELECT 1; # tail; ignored\n/* block; ignored */ SELECT 2;");
++        REQUIRE(result == std::vector<std::string>{"SELECT 1", "SELECT 2"});
++    }
++    SECTION("supports backslash and doubled delimiter escapes")
++    {
++        auto const result = SplitSqlStatements(
++            "INSERT INTO t VALUES ('it\\'s;a', 'it''s;b', `a``;b`); SELECT 3;");
++        REQUIRE(result.size() == 2);
++        REQUIRE(result[1] == "SELECT 3");
++    }
++}
+diff --git a/v2/INSTALL.md b/v2/INSTALL.md
+index ac219ef8..0b72a8da 100644
+--- a/v2/INSTALL.md
++++ b/v2/INSTALL.md
+@@ -26,38 +26,34 @@ When `BUILD_PLAYERBOT_V2` is set, the build copies `playerbot.conf.dist` next to
+
+ ## 3. Database setup
+
+-The module keeps all of its own data in a **dedicated schema**, separate from
+-TrinityCore's `auth` / `characters` / `world` databases. Bot characters
+-themselves live in the normal `characters` database; only bot *metadata* (name
+-pool, personalities, population targets, talent builds, guild metadata, …) lives
+-in the playerbot schema.
++V2 metadata lives in TrinityCore's configured **characters database**. This
++matches the `CharacterDatabase` connection used by the runtime and avoids an
++additional database pool or cross-schema permissions. Bot characters continue
++to use TrinityCore's normal character tables; V2 adds only distinctly named
++`playerbot_*` and `bot_*` metadata tables.
+
+-### 3a. Create the schema
+-
+-```sql
+-CREATE DATABASE playerbot DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-GRANT ALL PRIVILEGES ON playerbot.* TO 'trinity'@'localhost';
+-```
+-
+-Use whatever name and DB user your server already uses; just make the name match
+-`Playerbot.SharedDatabase` in step 4.
+-
+-### 3b. Tables + seed data (automatic)
++### 3a. Tables + seed data (automatic)
+
+ The numbered migrations in `sql/playerbot_v2/` are applied **automatically at
+ first boot** by `PlayerbotMigrationMgr`. They are append-only and idempotent,
+ tracked in the `playerbot_v2_schema_version` table, and include the ~107k-row
+ random **name pool** (`0015_name_pool.sql`) the fleet draws bot names from.
++The route/navigation schema and seed files under
++`src/modules/PlayerbotV2/sql/shared/` are also applied automatically using a
++separate migration-version range.
+
+-The runner reads these files from the source tree the server was built from. If
+-you deploy compiled binaries **without** the source tree, apply them manually in
+-numeric order instead, e.g.:
++The build/install rules copy these files into `sql/playerbot_v2/` beside the
++server configuration, including auxiliary files in its `auxiliary/` child.
++The runner prefers the source tree during development and automatically falls
++back to this deployed bundle. If you deploy files manually without either
++layout, apply them in numeric order, e.g.:
+
+ ```
+-for f in sql/playerbot_v2/0*.sql; do mysql -u trinity -p playerbot < "$f"; done
++for f in sql/playerbot_v2/0*.sql; do mysql -u trinity -p characters < "$f"; done
++for f in src/modules/PlayerbotV2/sql/shared/0*.sql; do mysql -u trinity -p characters < "$f"; done
+ ```
+
+-### 3c. World database fixes (manual)
++### 3b. World database fixes (manual)
+
+ `src/modules/PlayerbotV2/sql/world/` contains a few targeted fixes to the
+ **world** database that some Battleground / Strand of the Ancients behavior
+@@ -81,7 +77,6 @@ cp playerbot.conf.dist playerbot.conf
+ The module loads `playerbot.conf` from the same directory as the `worldserver.conf`
+ the server actually loaded. At minimum review:
+
+-- `Playerbot.SharedDatabase` — must equal the schema name from step 3a.
+ - `Playerbot.Population.TotalTarget` — how many bots to run.
+ - `Playerbot.AiWorkerThreads`, `Playerbot.TickBudgetMs` — performance tuning.
+
+diff --git a/v2/SCHEMA.md b/v2/SCHEMA.md
+index 7e21849b..50a593df 100644
+--- a/v2/SCHEMA.md
++++ b/v2/SCHEMA.md
+@@ -2,16 +2,16 @@
+
+ **Status**: Pass B
+ **Last updated**: 2026-05-01
+-**Decisions answered from `REQUIREMENTS.md` §7 #2**: V2 starts with a **fresh schema**. V1's `playerbot_*` tables are not migrated. Bot character data continues to live in TrinityCore's existing `characters` table (bots are real characters); V2 owns *only* what TrinityCore doesn't already store.
++**Decisions answered from `REQUIREMENTS.md` §7 #2**: V2 starts with **fresh metadata tables** in the configured characters database. V1's `playerbot_*` tables are not migrated. Bot character data continues to live in TrinityCore's existing `characters` tables (bots are real characters); V2 owns *only* what TrinityCore doesn't already store.
+
+ ## 1. Storage philosophy
+
+-Two stores. Strict separation.
++One database connection, with strict table ownership.
+
+ | Store | What it owns | Owner |
+ |---|---|---|
+-| `characters` (TrinityCore standard) | Bot character: level, gear, gold, position, quest log, spells, talents, reputations, achievements, mounts/pets/toys, mail, AH listings, bank, friends, guild membership, **everything a player has** | TrinityCore — V2 does not write |
+-| `playerbot_v2_*` (this schema) | Only what's bot-specific: personality, skill tier, prefs, RNG seed, activity tier, neighborhood prefs, decoration plans, decision log | V2 only |
++| `characters` standard tables | Bot character: level, gear, gold, position, quest log, spells, talents, reputations, achievements, mounts/pets/toys, mail, AH listings, bank, friends, guild membership, **everything a player has** | TrinityCore |
++| `characters.playerbot_*` / `characters.bot_*` | Only what's bot-specific: identity, personality, skill tier, prefs, RNG seed, activity tier, routes, name pool, and diagnostics | V2 only |
+
+ **Rule** (`REQUIREMENTS.md` §1.1 #7): if information would be tracked for a real player by TrinityCore, V2 must read it from `characters` (via `PlayerbotAPI`), not duplicate it. No mirror tables. V1's `playerbot_state` and similar are explicitly forbidden.

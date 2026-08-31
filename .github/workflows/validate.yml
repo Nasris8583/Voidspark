@@ -1,0 +1,36 @@
+name: Validate package metadata
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $errors = @()
+          Get-ChildItem installer -Recurse -Filter *.ps1 | ForEach-Object {
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName, [ref]$null, [ref]$errors)
+          }
+          if ($errors.Count) { $errors | Format-List; exit 1 }
+      - name: Verify distribution checksum
+        shell: pwsh
+        run: |
+          $expected = '709747A1AFCD395B40934C78857F6DAAF279980108E045F16C0747BD31EEF953'
+          $actual = (Get-FileHash dist/TrinityCore-12.0.7-PlayerbotV2-EasyPack.zip -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw "Checksum mismatch: $actual" }
+      - name: Check required project files
+        shell: pwsh
+        run: |
+          @(
+            'COPYING',
+            'config/playerbot.conf',
+            'patches/trinitycore-playerbot-v2-12.0.7.patch',
+            'sql/playerbot_v2/0001_init.sql',
+            'sql/playerbot_v2/0016_handcrafted_road.sql'
+          ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing $_" } }

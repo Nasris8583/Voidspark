@@ -1,0 +1,24 @@
+diff --git a/src/modules/PlayerbotV2/PlayerbotV2.cpp b/src/modules/PlayerbotV2/PlayerbotV2.cpp
+--- a/src/modules/PlayerbotV2/PlayerbotV2.cpp
++++ b/src/modules/PlayerbotV2/PlayerbotV2.cpp
+@@
+-    // Pre-warm grids + nav tiles for high-traffic bot zones (8 capitals + 3
+-    // class-starter maps). Sync; ~1-3s of disk I/O on cold cache, paid once
+-    // at startup so the population manager's batched logins don't cascade
+-    // into per-tick navmesh loads on the map worker thread.
+-    World::PrewarmCommonZones();
++    // Load grids and navigation tiles on demand. Eagerly prewarming capitals
++    // and starter maps consumes most of the address/commit budget on the
++    // retail-sized 12.0.7 data set before a bot is even online.
+
+-    // Pin all battleground terrain (grid maps + vmap tiles + mmap tiles)
+-    // resident for the server's lifetime. BG maps are instanced; without
+-    // the pin their tiles unload when the last match ends and the next
+-    // match re-reads them from disk synchronously on map-update threads,
+-    // which showed up as 4-10s world-tick spikes around match boundaries
+-    // once the 2026-06-12 nav regen gave BG maps real vmap/mmap data.
+-    World::PinBattlegroundTerrain();
++    // Do not pin every battleground's terrain at boot. The 12.0.7 dataset is
++    // large enough that doing so commits tens of gigabytes before any bot is
++    // online and forces memory paging, which is substantially worse than the
++    // occasional cold-load cost when a battleground actually starts.
