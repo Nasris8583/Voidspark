@@ -27,6 +27,9 @@ jobs:
           $loreExpected = '507903C30F69180EF8650EA223C027409325EDB105C1CE92CAFF8F1EC92A747E'
           $loreActual = (Get-FileHash dist/Voidspark-Lore-Update-0.2.0.zip -Algorithm SHA256).Hash
           if ($loreActual -ne $loreExpected) { throw "Lore update checksum mismatch: $loreActual" }
+          $bgExpected = '6C9CF12DF9A1C6302F27D4F746B0DE4CBA6C3F76D3581FA0407741FFCCD9417C'
+          $bgActual = (Get-FileHash dist/Voidspark-16GB-BG-Safe-Update-1.0.zip -Algorithm SHA256).Hash
+          if ($bgActual -ne $bgExpected) { throw "16 GB BG Safe update checksum mismatch: $bgActual" }
       - name: Check required project files
         shell: pwsh
         run: |
@@ -44,5 +47,9 @@ jobs:
             'installer/updates/Install-Lore-Update.cmd',
             'installer/updates/Install-Lore-Update.ps1',
             'installer/updates/README-FIRST.md',
-            'dist/Voidspark-Lore-Update-0.2.0.zip'
+            'dist/Voidspark-Lore-Update-0.2.0.zip',
+            'installer/updates/bg-safe/Install-16GB-BG-Safe.cmd',
+            'installer/updates/bg-safe/Install-16GB-BG-Safe.ps1',
+            'installer/updates/bg-safe/README-FIRST.md',
+            'dist/Voidspark-16GB-BG-Safe-Update-1.0.zip'
           ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing $_" } }

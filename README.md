@@ -13,6 +13,8 @@ Download [`TrinityCore-12.0.7-PlayerbotV2-EasyPack.zip`](dist/TrinityCore-12.0.7
 
 Already running Voidspark? Download the smaller one-click [`Voidspark-Lore-Update-0.2.0.zip`](dist/Voidspark-Lore-Update-0.2.0.zip). Stop the server, extract the ZIP, and double-click `Install-Lore-Update.cmd`. It preserves configuration, creates a backup, and requires no manual editing.
 
+For a 16 GB PC that crashes with `std::bad_alloc` while entering battlegrounds, use [`Voidspark-16GB-BG-Safe-Update-1.0.zip`](dist/Voidspark-16GB-BG-Safe-Update-1.0.zip). It safely applies the tested 20-bot low-memory profile without changing database or realm settings.
+
 SHA-256:
 
 ```text
@@ -23,6 +25,12 @@ Lore update SHA-256:
 
 ```text
 507903C30F69180EF8650EA223C027409325EDB105C1CE92CAFF8F1EC92A747E
+```
+
+16 GB BG Safe update SHA-256:
+
+```text
+6C9CF12DF9A1C6302F27D4F746B0DE4CBA6C3F76D3581FA0407741FFCCD9417C
 ```
 
 ## Features
