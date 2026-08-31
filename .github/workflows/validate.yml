@@ -24,6 +24,9 @@ jobs:
           $expected = '9A4CCB78004AC6FD29C18EDD87F7B3881F79D33ECF165961E34D49B968718DFA'
           $actual = (Get-FileHash dist/TrinityCore-12.0.7-PlayerbotV2-EasyPack.zip -Algorithm SHA256).Hash
           if ($actual -ne $expected) { throw "Checksum mismatch: $actual" }
+          $loreExpected = '507903C30F69180EF8650EA223C027409325EDB105C1CE92CAFF8F1EC92A747E'
+          $loreActual = (Get-FileHash dist/Voidspark-Lore-Update-0.2.0.zip -Algorithm SHA256).Hash
+          if ($loreActual -ne $loreExpected) { throw "Lore update checksum mismatch: $loreActual" }
       - name: Check required project files
         shell: pwsh
         run: |
@@ -37,5 +40,9 @@ jobs:
             'patches/lore-source/BotChatReactor.cpp',
             'patches/lore-source/LoreKnowledge.cpp',
             'patches/lore-source/LoreKnowledge.h',
-            'patches/0003-conversational-wow-lore.patch'
+            'patches/0003-conversational-wow-lore.patch',
+            'installer/updates/Install-Lore-Update.cmd',
+            'installer/updates/Install-Lore-Update.ps1',
+            'installer/updates/README-FIRST.md',
+            'dist/Voidspark-Lore-Update-0.2.0.zip'
           ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing $_" } }

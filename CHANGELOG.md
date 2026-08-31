@@ -9,6 +9,7 @@
 - Preserved bot-message suppression and local cooldowns to prevent chat loops and spam.
 - Added migration `0017_lore_knowledge.sql` and updated the Windows Easy Pack.
 - Added apply-ready source patch `0003-conversational-wow-lore.patch` and verified it against source revision `57655680`.
+- Added `Voidspark-Lore-Update-0.2.0.zip`, a one-click binary/database updater for existing installations with integrity checks, automatic backup, rollback on copy failure, and no configuration edits.
 
 ## 0.1.0 - 2026-08-31
 

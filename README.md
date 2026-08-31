@@ -11,10 +11,18 @@ It ports the Playerbot V2 system to the TrinityCore 12.0.7 API, fixes compile an
 
 Download [`TrinityCore-12.0.7-PlayerbotV2-EasyPack.zip`](dist/TrinityCore-12.0.7-PlayerbotV2-EasyPack.zip), extract it, and read `README-FIRST.md`.
 
+Already running Voidspark? Download the smaller one-click [`Voidspark-Lore-Update-0.2.0.zip`](dist/Voidspark-Lore-Update-0.2.0.zip). Stop the server, extract the ZIP, and double-click `Install-Lore-Update.cmd`. It preserves configuration, creates a backup, and requires no manual editing.
+
 SHA-256:
 
 ```text
 9A4CCB78004AC6FD29C18EDD87F7B3881F79D33ECF165961E34D49B968718DFA
+```
+
+Lore update SHA-256:
+
+```text
+507903C30F69180EF8650EA223C027409325EDB105C1CE92CAFF8F1EC92A747E
 ```
 
 ## Features
