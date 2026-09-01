@@ -30,6 +30,9 @@ jobs:
           $bgExpected = '6C9CF12DF9A1C6302F27D4F746B0DE4CBA6C3F76D3581FA0407741FFCCD9417C'
           $bgActual = (Get-FileHash dist/Voidspark-16GB-BG-Safe-Update-1.0.zip -Algorithm SHA256).Hash
           if ($bgActual -ne $bgExpected) { throw "16 GB BG Safe update checksum mismatch: $bgActual" }
+          $tabardExpected = 'B5EEBA0EA347BAD46194A1F262E679E2FD30D11D938483C9835FCD5E8804BC37'
+          $tabardActual = (Get-FileHash dist/Voidspark-Guild-Tabards-Update-1.0.zip -Algorithm SHA256).Hash
+          if ($tabardActual -ne $tabardExpected) { throw "Guild Tabards update checksum mismatch: $tabardActual" }
       - name: Check required project files
         shell: pwsh
         run: |
@@ -51,5 +54,11 @@ jobs:
             'installer/updates/bg-safe/Install-16GB-BG-Safe.cmd',
             'installer/updates/bg-safe/Install-16GB-BG-Safe.ps1',
             'installer/updates/bg-safe/README-FIRST.md',
-            'dist/Voidspark-16GB-BG-Safe-Update-1.0.zip'
+            'dist/Voidspark-16GB-BG-Safe-Update-1.0.zip',
+            'installer/updates/guild-tabard/Install-Guild-Tabards.cmd',
+            'installer/updates/guild-tabard/Install-Guild-Tabards.ps1',
+            'installer/updates/guild-tabard/README-FIRST.md',
+            'patches/guild-tabard-source/BotGuildTabard.cpp',
+            'patches/guild-tabard-source/BotGuildTabard.h',
+            'dist/Voidspark-Guild-Tabards-Update-1.0.zip'
           ) | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing $_" } }

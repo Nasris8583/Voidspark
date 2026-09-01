@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - 2026-09-01
+
+- Added automatic Guild Tabard item 5976 equipment for guilded bots.
+- Existing bots repair their tabard on login; new founders and recruits equip it immediately.
+- Kept guildless bots and real-player inventories untouched.
+- Added the backed-up, integrity-checked `Voidspark-Guild-Tabards-Update-1.0.zip` one-click updater.
+- Compiled and completed a clean worldserver startup test on TrinityCore 12.0.7.
+
 ## 0.2.0 - 2026-08-31
 
 - Added a database-backed World of Warcraft lore knowledge system with 42 curated topics.

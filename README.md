@@ -15,6 +15,8 @@ Already running Voidspark? Download the smaller one-click [`Voidspark-Lore-Updat
 
 For a 16 GB PC that crashes with `std::bad_alloc` while entering battlegrounds, use [`Voidspark-16GB-BG-Safe-Update-1.0.zip`](dist/Voidspark-16GB-BG-Safe-Update-1.0.zip). It safely applies the tested 20-bot low-memory profile without changing database or realm settings.
 
+To make guilded bots automatically display their respective guild emblem, use [`Voidspark-Guild-Tabards-Update-1.0.zip`](dist/Voidspark-Guild-Tabards-Update-1.0.zip). Existing guilded bots repair their tabard at login, and bots that join or found a guild equip it immediately.
+
 SHA-256:
 
 ```text
@@ -33,6 +35,12 @@ Lore update SHA-256:
 6C9CF12DF9A1C6302F27D4F746B0DE4CBA6C3F76D3581FA0407741FFCCD9417C
 ```
 
+Guild Tabards update SHA-256:
+
+```text
+B5EEBA0EA347BAD46194A1F262E679E2FD30D11D938483C9835FCD5E8804BC37
+```
+
 ## Features
 
 - Headless bot login and logout integrated with TrinityCore 12.0.7.
@@ -40,6 +48,7 @@ Lore update SHA-256:
 - Player-facing `/say`, `/yell`, party, guild, whisper, and emote reactions.
 - Database-backed WoW lore answers across local, party, guild, and whisper chat, with short conversational follow-ups.
 - Player invitations, supported group buffs, guild recruitment, and scheduled guild activity.
+- Automatic dynamic guild tabards that display each bot's own guild emblem.
 - Automatic, versioned character-database migrations.
 - One-click Windows installer with timestamped backups and restoration tools.
 - Memory fixes that remove eager terrain/navmesh loading for every common zone and battleground.
